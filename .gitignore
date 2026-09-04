@@ -1,0 +1,41 @@
+# Local environment files — keep examples tracked
+.env
+.env.*
+!.env.example
+!.env*.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+web/node_modules/
+.next/
+web/.next/
+web/out/
+web/coverage/
+web/tmp-loaders/
+
+# User transcripts and ad-hoc PDFs (keep generated test fixtures)
+*.pdf
+!tests/fixtures/
+!tests/fixtures/**
+
+# OS / editor
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.pem
+*.key
+!*.key.example
