@@ -140,6 +140,7 @@ class TargetPlanRequest(BaseModel):
     target_gpa: float
     max_grade: str
     strategy: str
+    official_cgpa: float | None = Field(default=None, ge=0, le=4, strict=True, allow_inf_nan=False)
 
 
 class TargetPlanChangeResponse(BaseModel):
@@ -179,6 +180,7 @@ class ManualScenarioRequest(BaseModel):
 
     courses: list[CourseInput]
     changes: list[ManualScenarioChangeInput]
+    official_cgpa: float | None = Field(default=None, ge=0, le=4, strict=True, allow_inf_nan=False)
 
 
 class ManualScenarioChangeResponse(BaseModel):
@@ -204,6 +206,7 @@ class CourseImpactRequest(BaseModel):
 
     courses: list[CourseInput]
     course_code: str
+    official_cgpa: float | None = Field(default=None, ge=0, le=4, strict=True, allow_inf_nan=False)
 
 
 class CourseImpactCourseResponse(BaseModel):
@@ -245,6 +248,7 @@ class FutureSemesterRequest(BaseModel):
 
     courses: list[CourseInput]
     future_courses: list[FutureCourseInput]
+    official_cgpa: float | None = Field(default=None, ge=0, le=4, strict=True, allow_inf_nan=False)
 
 
 class FutureSemesterResponse(BaseModel):
@@ -264,6 +268,7 @@ class RequiredSemesterGpaRequest(BaseModel):
     courses: list[CourseInput]
     target_gpa: float
     future_gpa_weight: float
+    official_cgpa: float | None = Field(default=None, ge=0, le=4, strict=True, allow_inf_nan=False)
 
 
 class RequiredSemesterGpaResponse(BaseModel):

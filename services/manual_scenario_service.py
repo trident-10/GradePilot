@@ -7,7 +7,10 @@ from core.grade_scale import GRADE_POINTS
 from core.scenario_engine import simulate_multiple_grade_changes
 from models.course import Course
 from parsers.transcript_parser import keep_latest_attempts
-from services.academic_summary_service import AcademicSummaryValidationError
+from services.academic_summary_service import (
+    AcademicSummaryValidationError,
+    validate_official_cgpa,
+)
 
 
 class ManualScenarioValidationError(AcademicSummaryValidationError):
@@ -33,6 +36,7 @@ class ManualScenario:
 def build_manual_scenario(
     courses: list[Course],
     raw_changes: list[dict],
+    official_cgpa: float | None = None,
 ) -> ManualScenario:
     """
     Apply user-selected improvements to active/latest attempts.
@@ -96,6 +100,7 @@ def build_manual_scenario(
         engine_result = simulate_multiple_grade_changes(
             courses=active_courses,
             changes=normalized_changes,
+            official_cgpa=validate_official_cgpa(official_cgpa),
         )
     except (KeyError, ValueError) as exc:
         raise ManualScenarioValidationError(

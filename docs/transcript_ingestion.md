@@ -67,10 +67,9 @@ from the relative size of the values.
 The frontend asks for the GPA credit system, not both column roles. If headers
 are unresolved, users select one sample card for that system. The existing form
 fields submit that single mapping and weighting together, skipping a redundant
-second selection. After weighting, application policy compares the existing GPA
-engine's latest-attempt result with an explicitly printed 4-point CGPA (allowing
-0.011 for display rounding/truncation). A discrepancy requests review and never
-overwrites either value or changes the GPA formula.
+second selection. After weighting, the printed official CGPA (when present) is
+kept as planning baseline metadata. Course rows are never rewritten to force a
+match with the rounded transcript average.
 
 ## Official versus derived CGPA display
 
@@ -82,13 +81,10 @@ Refreshing the summary preserves the original official value.
 
 The overview's main card displays official CGPA when present (including zero),
 otherwise derived CGPA. Label is `GANO` when official is used, otherwise
-`Hesaplanan GANO`. When both values exist and differ, the card may show a quiet
-secondary `GradePilot hesabı` line. A 0.01 rounding/truncation difference is not
-an alarm; larger gaps (including well above 0.10) may raise a structured
-`official_gpa_mismatch` review warning without replacing either value or rewriting
-courses. The planning preview is explicitly labelled as course-derived.
-Planner/scenario requests never receive the rounded official CGPA, and their
-engines and course data are unchanged.
+`Hesaplanan GANO`. No secondary derived line is shown. Planning endpoints accept
+optional `official_cgpa` and anchor current quality points to that printed value
+without rewriting course grades. When official is absent, course-derived math
+remains the fallback.
 
 Regression tests cover mixed full-width/parallel layouts, word preservation,
 forbidden page cropping, shared semester context, geometric/explicit cells,

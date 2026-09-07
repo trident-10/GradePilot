@@ -50,13 +50,7 @@ export function GpaSummary({
           strong
           label={gano.label}
           value={gano.value === null ? "—" : formatGpa(gano.value)}
-          hint={
-            gano.isOfficial
-              ? gano.derivedSecondary
-                ? `${gano.source} · ${gano.derivedSecondary}`
-                : gano.source
-              : `${weightingChip(weightingMode)} · ${gano.source}`
-          }
+          hint={gano.isOfficial ? gano.source : `${weightingChip(weightingMode)} · ${gano.source}`}
         />
       </div>
       <MetricTile

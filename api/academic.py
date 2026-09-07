@@ -119,6 +119,7 @@ def academic_target_plan(
             target_gpa=payload.target_gpa,
             max_grade=payload.max_grade,
             strategy=payload.strategy,
+            official_cgpa=payload.official_cgpa,
         )
     except (AcademicSummaryValidationError, TargetPlanValidationError) as exc:
         raise HTTPException(
@@ -186,6 +187,7 @@ def academic_manual_scenario(
             raw_changes=[
                 change.model_dump() for change in payload.changes
             ],
+            official_cgpa=payload.official_cgpa,
         )
     except (
         AcademicSummaryValidationError,
@@ -234,6 +236,7 @@ def academic_course_impact(
         impact = build_course_impact(
             courses=courses,
             course_code=payload.course_code,
+            official_cgpa=payload.official_cgpa,
         )
     except (AcademicSummaryValidationError, CourseImpactValidationError) as exc:
         raise HTTPException(
@@ -285,6 +288,7 @@ def academic_future_semester(
         projection = build_future_semester_projection(
             current_courses=current_courses,
             future_courses=future_courses,
+            official_cgpa=payload.official_cgpa,
         )
     except (
         AcademicSummaryValidationError,
@@ -328,6 +332,7 @@ def academic_required_semester_gpa(
             courses=courses,
             target_gpa=payload.target_gpa,
             future_gpa_weight=payload.future_gpa_weight,
+            official_cgpa=payload.official_cgpa,
         )
     except (
         AcademicSummaryValidationError,

@@ -597,7 +597,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setPlannerResult(null);
 
       try {
-        const plan = await fetchTargetPlan(courses, input);
+        const plan = await fetchTargetPlan(
+          courses,
+          input,
+          transcript?.officialCgpa ?? null,
+        );
         setPlannerResult(plan);
       } catch (error) {
         console.error("Target plan failed", error);
@@ -607,7 +611,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setPlannerLoading(false);
       }
     },
-    [transcript?.courses],
+    [transcript?.courses, transcript?.officialCgpa],
   );
 
   const addManualScenarioChange = useCallback(
@@ -669,6 +673,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       const result = await fetchManualScenario(
         courses,
         manualScenarioChanges,
+        transcript?.officialCgpa ?? null,
       );
       if (manualScenarioRequestId.current === requestId) {
         setManualScenarioResult(result);
@@ -683,7 +688,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setManualScenarioLoading(false);
       }
     }
-  }, [manualScenarioChanges, transcript?.courses]);
+  }, [manualScenarioChanges, transcript?.courses, transcript?.officialCgpa]);
 
   const requestCourseImpact = useCallback(
     async (courseCode: string) => {
@@ -701,7 +706,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
       setCourseImpactLoading(true);
       try {
-        const impact = await fetchCourseImpact(courses, courseCode);
+        const impact = await fetchCourseImpact(
+          courses,
+          courseCode,
+          transcript?.officialCgpa ?? null,
+        );
         setCourseImpactResult(impact);
       } catch (error) {
         console.error("Course impact failed", error);
@@ -711,7 +720,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setCourseImpactLoading(false);
       }
     },
-    [transcript?.courses],
+    [transcript?.courses, transcript?.officialCgpa],
   );
 
   const addFutureCourse = useCallback(() => {
@@ -774,6 +783,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           gpaCredit: Number(row.gpaCredit.replace(",", ".")),
           grade: row.grade,
         })),
+        transcript?.officialCgpa ?? null,
       );
       setFutureSemesterResult(projection);
     } catch (error) {
@@ -783,7 +793,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setFutureSemesterLoading(false);
     }
-  }, [futureCourses, transcript?.courses]);
+  }, [futureCourses, transcript?.courses, transcript?.officialCgpa]);
 
   const requestRequiredSemesterGpa = useCallback(
     async (input: { targetGpa: number; futureGpaWeight: number }) => {
@@ -801,7 +811,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setRequiredGpaResult(null);
 
       try {
-        const result = await fetchRequiredSemesterGpa(courses, input);
+        const result = await fetchRequiredSemesterGpa(
+          courses,
+          input,
+          transcript?.officialCgpa ?? null,
+        );
         setRequiredGpaResult(result);
       } catch (error) {
         console.error("Required semester GPA failed", error);
@@ -811,7 +825,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setRequiredGpaLoading(false);
       }
     },
-    [transcript?.courses],
+    [transcript?.courses, transcript?.officialCgpa],
   );
 
   const value = useMemo<AppStateContextValue>(() => {

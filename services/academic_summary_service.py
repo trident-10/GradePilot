@@ -145,25 +145,32 @@ def validate_and_build_courses(
     return courses
 
 
-def build_academic_summary(
-    courses: list[Course], *, official_cgpa: float | None = None,
-) -> AcademicSummary:
-    """
-    Cumulative GANO uses latest attempts.
-    Semester GPAs use historical attempts as returned by calculate_semester_gpas.
-    Official CGPA is display/validation metadata, never an engine input.
-    current_gpa remains the derived value for legacy calculation consumers.
-    """
-
-    if official_cgpa is not None and (
+def validate_official_cgpa(official_cgpa: float | None) -> float | None:
+    if official_cgpa is None:
+        return None
+    if (
         isinstance(official_cgpa, bool)
         or not isinstance(official_cgpa, (int, float))
         or not math.isfinite(official_cgpa)
         or not 0 <= official_cgpa <= 4
     ):
         raise AcademicSummaryValidationError("Official CGPA must be between 0.00 and 4.00.")
+    return float(official_cgpa)
+
+
+def build_academic_summary(
+    courses: list[Course], *, official_cgpa: float | None = None,
+) -> AcademicSummary:
+    """
+    Cumulative GANO uses latest attempts.
+    Semester GPAs use historical attempts as returned by calculate_semester_gpas.
+    Official CGPA is kept separately as derived_cgpa's peer; current_gpa is the
+    planning baseline (official when present, otherwise course-derived).
+    """
+
+    official = validate_official_cgpa(official_cgpa)
     active_courses = keep_latest_attempts(courses)
-    current_gpa = calculate_gpa(active_courses)
+    derived = float(calculate_gpa(active_courses))
     total_gpa_weight = sum(
         course.gpa_credit for course in active_courses
     )
@@ -180,10 +187,10 @@ def build_academic_summary(
     ]
 
     return AcademicSummary(
-        current_gpa=float(current_gpa),
+        current_gpa=official if official is not None else derived,
         total_gpa_weight=float(total_gpa_weight),
         active_course_count=len(active_courses),
         semesters=semesters,
-        official_cgpa=official_cgpa,
-        derived_cgpa=float(current_gpa),
+        official_cgpa=official,
+        derived_cgpa=derived,
     )

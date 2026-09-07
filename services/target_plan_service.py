@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.gpa_engine import calculate_gpa
+from core.gpa_baseline import anchored_current
 from core.grade_scale import GRADE_POINTS
 from core.scenario_engine import simulate_grade_change
 from core.target_engine import VALID_STRATEGIES, find_target_plan
 from models.course import Course
 from parsers.transcript_parser import keep_latest_attempts
-from services.academic_summary_service import AcademicSummaryValidationError
+from services.academic_summary_service import (
+    AcademicSummaryValidationError,
+    validate_official_cgpa,
+)
 
 
 class TargetPlanValidationError(AcademicSummaryValidationError):
@@ -72,10 +75,12 @@ def build_target_plan(
     target_gpa: object,
     max_grade: object,
     strategy: object,
+    official_cgpa: float | None = None,
 ) -> TargetPlan:
     """
     Cumulative planner uses latest attempts (source_order).
     find_target_plan remains the source of truth for strategy results.
+    Official CGPA anchors the current baseline when the transcript printed one.
     """
 
     numeric_target, grade, selected_strategy = _validate_planner_inputs(
@@ -83,6 +88,7 @@ def build_target_plan(
         max_grade,
         strategy,
     )
+    official = validate_official_cgpa(official_cgpa)
 
     active_courses = keep_latest_attempts(courses)
     total_weight = sum(course.gpa_credit for course in active_courses)
@@ -94,9 +100,10 @@ def build_target_plan(
         target_gpa=numeric_target,
         strategy=selected_strategy,
         max_grade=grade,
+        official_cgpa=official,
     )
 
-    current_gpa = calculate_gpa(active_courses)
+    current_gpa, _, _ = anchored_current(active_courses, official)
     estimated_gpa = float(engine_result["projected_gpa"])
     reachable = bool(engine_result["reachable"])
     already_reached = bool(engine_result["already_reached"])
@@ -111,6 +118,7 @@ def build_target_plan(
                 active_courses,
                 code,
                 to_grade,
+                official_cgpa=official,
             )
             gpa_gain = float(simulation["difference"])
         except ValueError:

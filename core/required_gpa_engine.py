@@ -1,11 +1,12 @@
 from models.course import Course
-from core.grade_scale import GRADE_POINTS
+from core.gpa_baseline import anchored_current
 
 
 def calculate_required_semester_gpa(
     courses: list[Course],
     future_credits: float,
-    target_cgpa: float
+    target_cgpa: float,
+    official_cgpa: float | None = None,
 ) -> dict:
 
     if future_credits <= 0:
@@ -18,20 +19,8 @@ def calculate_required_semester_gpa(
             "Target CGPA must be between 0.00 and 4.00."
         )
 
-    current_credits = sum(
-        course.gpa_credit
-        for course in courses
-    )
-
-    current_points = sum(
-        course.gpa_credit * GRADE_POINTS[course.grade]
-        for course in courses
-    )
-
-    current_cgpa = (
-        current_points / current_credits
-        if current_credits > 0
-        else 0.0
+    current_cgpa, current_points, current_credits = anchored_current(
+        courses, official_cgpa
     )
 
     total_credits = (

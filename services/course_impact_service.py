@@ -3,10 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from core.course_impact_engine import analyze_course_impact
-from core.gpa_engine import calculate_gpa
+from core.gpa_baseline import anchored_current
 from models.course import Course
 from parsers.transcript_parser import keep_latest_attempts
-from services.academic_summary_service import AcademicSummaryValidationError
+from services.academic_summary_service import (
+    AcademicSummaryValidationError,
+    validate_official_cgpa,
+)
 
 
 class CourseImpactValidationError(AcademicSummaryValidationError):
@@ -38,6 +41,7 @@ class CourseImpact:
 def build_course_impact(
     courses: list[Course],
     course_code: object,
+    official_cgpa: float | None = None,
 ) -> CourseImpact:
     """
     Impact analysis uses latest attempts (source_order).
@@ -48,12 +52,14 @@ def build_course_impact(
         raise CourseImpactValidationError("A course code is required.")
 
     selected_code = course_code.strip()
+    official = validate_official_cgpa(official_cgpa)
     active_courses = keep_latest_attempts(courses)
 
     try:
         engine_result = analyze_course_impact(
             courses=active_courses,
             course_code=selected_code,
+            official_cgpa=official,
         )
     except ValueError as exc:
         message = str(exc)
@@ -63,7 +69,7 @@ def build_course_impact(
             "Course impact could not be calculated."
         ) from exc
 
-    current_gpa = calculate_gpa(active_courses)
+    current_gpa, _, _ = anchored_current(active_courses, official)
     options = [
         CourseImpactOption(
             grade=str(item["grade"]),

@@ -181,6 +181,7 @@ export async function fetchTargetPlan(
     maxGrade: string;
     strategy: string;
   },
+  officialCgpa: number | null = null,
 ): Promise<TargetPlan> {
   const payload = await postJson(
     `${getApiBaseUrl()}/api/academic/target-plan`,
@@ -189,6 +190,7 @@ export async function fetchTargetPlan(
       target_gpa: input.targetGpa,
       max_grade: input.maxGrade,
       strategy: input.strategy,
+      official_cgpa: validOfficialCgpa(officialCgpa),
     },
   );
 
@@ -254,6 +256,7 @@ export async function fetchTargetPlan(
 export async function fetchManualScenario(
   courses: Course[],
   changes: ManualScenarioChangeInput[],
+  officialCgpa: number | null = null,
 ): Promise<ManualScenario> {
   const payload = await postJson(
     `${getApiBaseUrl()}/api/academic/manual-scenario`,
@@ -263,6 +266,7 @@ export async function fetchManualScenario(
         course_code: change.courseCode,
         new_grade: change.newGrade,
       })),
+      official_cgpa: validOfficialCgpa(officialCgpa),
     },
   );
 
@@ -399,12 +403,14 @@ export type CourseImpact = {
 export async function fetchCourseImpact(
   courses: Course[],
   courseCode: string,
+  officialCgpa: number | null = null,
 ): Promise<CourseImpact> {
   const payload = await postJson(
     `${getApiBaseUrl()}/api/academic/course-impact`,
     {
       courses: serializeCourses(courses),
       course_code: courseCode,
+      official_cgpa: validOfficialCgpa(officialCgpa),
     },
   );
 
@@ -501,6 +507,7 @@ export async function fetchFutureSemester(
     grade: string;
     code?: string;
   }>,
+  officialCgpa: number | null = null,
 ): Promise<FutureSemesterProjection> {
   const payload = await postJson(
     `${getApiBaseUrl()}/api/academic/future-semester`,
@@ -512,6 +519,7 @@ export async function fetchFutureSemester(
         grade: course.grade,
         code: course.code,
       })),
+      official_cgpa: validOfficialCgpa(officialCgpa),
     },
   );
 
@@ -564,6 +572,7 @@ export async function fetchRequiredSemesterGpa(
     targetGpa: number;
     futureGpaWeight: number;
   },
+  officialCgpa: number | null = null,
 ): Promise<RequiredSemesterGpa> {
   const payload = await postJson(
     `${getApiBaseUrl()}/api/academic/required-semester-gpa`,
@@ -571,6 +580,7 @@ export async function fetchRequiredSemesterGpa(
       courses: serializeCourses(courses),
       target_gpa: input.targetGpa,
       future_gpa_weight: input.futureGpaWeight,
+      official_cgpa: validOfficialCgpa(officialCgpa),
     },
   );
 

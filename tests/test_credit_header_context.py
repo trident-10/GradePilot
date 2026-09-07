@@ -141,8 +141,8 @@ def test_same_language_same_term_parallel_tables_are_not_joined():
     assert all(c.semester == "2024-2025 Güz" for c in result.courses)
 
 
-@pytest.mark.parametrize("official, mismatch", [("3.43", False), ("3.17", True)])
-def test_api_skips_anonymous_mapping_and_reports_real_gpa_mismatch(official, mismatch):
+@pytest.mark.parametrize("official", ["3.43", "3.17"])
+def test_api_skips_anonymous_mapping_and_keeps_official_cgpa(official):
     data = _bilingual_pdf(official)
     with TestClient(create_app()) as client:
         preview = client.post("/api/transcripts/analyze", files={"file": ("anonymous.pdf", data, "application/pdf")})
@@ -158,7 +158,7 @@ def test_api_skips_anonymous_mapping_and_reports_real_gpa_mismatch(official, mis
     assert len(body["courses"]) == 3
     assert len(body["semesters"]) == 2
     assert body["official_summary"]["cgpa"] == float(official)
-    assert any("genel ortalama uyuşmuyor" in w for w in body["warnings"]) == mismatch
+    assert not any("genel ortalama uyuşmuyor" in w for w in body["warnings"])
     with pdfplumber.open(io.BytesIO(data)) as pdf:
         selected = run_transcript_workflow(extract_page_text(pdf.pages[0]), gpa_weighting_field="local_credit")
     assert calculate_gpa(keep_latest_attempts(selected.courses)) == pytest.approx(24 / 7)

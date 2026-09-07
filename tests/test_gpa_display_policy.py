@@ -1,4 +1,4 @@
-"""Official CGPA is display metadata, not a replacement for course mathematics."""
+"""Official CGPA is the planning baseline when the transcript prints one."""
 from copy import deepcopy
 from dataclasses import asdict
 
@@ -30,7 +30,7 @@ def test_domain_keeps_official_and_derived_separate_without_mutation(official, a
     summary = build_academic_summary(rows, official_cgpa=official)
     assert summary.official_cgpa == official
     assert summary.derived_cgpa == pytest.approx(derived)
-    assert summary.current_gpa == pytest.approx(derived)  # Legacy calculation contract.
+    assert summary.current_gpa == pytest.approx(official if official is not None else derived)
     assert summary.semesters[0].gpa == pytest.approx(derived)
     assert calculate_gpa(rows) == pytest.approx(derived)
     assert rows == before
@@ -46,7 +46,7 @@ def test_summary_api_preserves_both_gpas(official):
     body = response.json()
     assert body["official_cgpa"] == official
     assert body["derived_cgpa"] == pytest.approx(3.23)
-    assert body["current_gpa"] == pytest.approx(3.23)
+    assert body["current_gpa"] == pytest.approx(official if official is not None else 3.23)
 
 
 def test_legacy_summary_request_keeps_course_fallback():
@@ -54,6 +54,7 @@ def test_legacy_summary_request_keeps_course_fallback():
         body = client.post("/api/academic/summary", json={"courses": [asdict(c) for c in courses()]}).json()
     assert body["official_cgpa"] is None
     assert body["derived_cgpa"] == pytest.approx(3.23)
+    assert body["current_gpa"] == pytest.approx(3.23)
 
 
 @pytest.mark.parametrize("official", [-0.1, 4.01, True, "3.24"])
@@ -85,8 +86,7 @@ Genel Not Ortalamasi (GNO / CGPA): 3.24 / 4.00
     assert not any(issue.code == "official_gpa_mismatch" for issue in result.issues)
 
 
-def test_large_official_gap_is_warning_without_mutating_courses():
-    """Gaps can exceed 0.10; keep both values and never rewrite course math."""
+def test_large_official_gap_is_quiet_and_used_as_planner_baseline():
     text = """Course Credit ECTS Grade
 CS101 First 0.23 1 AA
 CS102 Second 0.77 2 BB
@@ -96,20 +96,31 @@ Genel Not Ortalamasi (GNO / CGPA): 2.90 / 4.00
     before = deepcopy(result.courses)
     assert result.extraction.document.summary.cgpa == 2.9
     assert calculate_gpa(result.courses) == pytest.approx(3.23)
-    assert any(issue.code == "official_gpa_mismatch" for issue in result.issues)
+    assert not any(issue.code == "official_gpa_mismatch" for issue in result.issues)
     summary = build_academic_summary(result.courses, official_cgpa=2.9)
     assert summary.official_cgpa == 2.9
     assert summary.derived_cgpa == pytest.approx(3.23)
-    assert summary.current_gpa == pytest.approx(3.23)
+    assert summary.current_gpa == pytest.approx(2.9)
     assert result.courses == before
 
 
-def test_summary_metadata_never_changes_planner_results():
+def test_planner_uses_official_baseline_without_changing_courses():
     with TestClient(create_app()) as client:
-        payload = {"courses": [asdict(c) for c in courses()], "target_gpa": 3.5, "max_grade": "AA", "strategy": "min_courses"}
-        before = client.post("/api/academic/target-plan", json=payload)
-        client.post("/api/academic/summary", json={"courses": payload["courses"], "official_cgpa": 3.24})
+        payload = {
+            "courses": [asdict(c) for c in courses()],
+            "target_gpa": 3.5,
+            "max_grade": "AA",
+            "strategy": "min_courses",
+            "official_cgpa": 3.24,
+        }
+        before = client.post("/api/academic/target-plan", json={
+            "courses": payload["courses"],
+            "target_gpa": 3.5,
+            "max_grade": "AA",
+            "strategy": "min_courses",
+        })
         after = client.post("/api/academic/target-plan", json=payload)
     assert before.status_code == after.status_code == 200
-    assert before.json() == after.json()
-    assert after.json()["current_gpa"] == pytest.approx(3.23)
+    assert before.json()["current_gpa"] == pytest.approx(3.23)
+    assert after.json()["current_gpa"] == pytest.approx(3.24)
+    assert after.json()["changes"]  # still plans from course upgrades

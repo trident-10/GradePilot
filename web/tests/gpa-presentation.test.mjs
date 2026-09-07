@@ -8,7 +8,6 @@ import ts from "typescript";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-// Exercise the actual card, not only a copied expression; reuse installed TS.
 const root = new URL("../", import.meta.url).href;
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -42,22 +41,18 @@ for (const [official, derived, expected, label] of [
   [3.24, 3.24, 3.24, "GANO"],
   [0, 3.23, 0, "GANO"],
 ]) {
-  test(`card prefers official ${official} over derived ${derived} without overwriting either`, () => {
+  test(`card prefers official ${official} over derived ${derived} without secondary derived line`, () => {
     const presentation = gpaPresentation(official, derived);
     assert.equal(presentation.value, expected);
     assert.equal(presentation.label, label);
-    if (official === null || Math.abs(official - derived) <= 0.01 + 1e-9) {
-      assert.equal(presentation.hasDiscrepancy, false);
-    }
     const props = { officialCgpa: official, derivedCgpa: derived, totalGpaWeight: 100,
       activeCourses: 2, semesterCount: 1, highestSemesterGpa: null, weightingMode: "credit" };
     const markup = renderToStaticMarkup(createElement(GpaSummary, props));
     assert.ok(markup.includes(`>${expected.toFixed(2)}</p>`), markup);
     assert.ok(markup.includes(`>${label}</p>`));
     if (official !== null) assert.match(markup, /Transkriptte belirtilen resmî GANO/);
+    assert.ok(!markup.includes("GradePilot hesabı"));
     if (official !== null && official !== derived) {
-      assert.match(markup, new RegExp(`GradePilot hesabı: ${derived.toFixed(2)}`));
-      // Derived must not be the hero value node.
       assert.ok(!markup.includes(`>${derived.toFixed(2)}</p>`));
     }
     assert.equal(props.officialCgpa, official);
@@ -76,13 +71,7 @@ test("missing values do not invent a zero GPA", () => {
   assert.equal(gpaPresentation(null, null).value, null);
 });
 
-test("large discrepancy preserves official priority and separate validation signal", () => {
-  const result = gpaPresentation(3.17, 3.32);
-  assert.equal(result.value, 3.17);
-  assert.equal(result.hasDiscrepancy, true);
-});
-
-test("summary transport preserves both values; planner still receives only course inputs", async (t) => {
+test("summary and planner transport use official as planning baseline", async (t) => {
   const courses = [{code: "CS101", name: "Test", grade: "BB", gpaCredit: 3,
     semester: "2024 Fall", localCredit: 3, ects: 6, sourceOrder: 0}];
   const before = structuredClone(courses);
@@ -90,18 +79,19 @@ test("summary transport preserves both values; planner still receives only cours
     const body = JSON.parse(options.body);
     if (url.endsWith("/summary")) {
       assert.equal(body.official_cgpa, 3.24);
-      return Response.json({current_gpa: 3.23, derived_cgpa: 3.23, official_cgpa: 3.24,
+      return Response.json({current_gpa: 3.24, derived_cgpa: 3.23, official_cgpa: 3.24,
         total_gpa_weight: 3, active_course_count: 1, semesters: []});
     }
     assert.ok(url.endsWith("/target-plan"));
-    assert.ok(!("official_cgpa" in body));
-    return Response.json({current_gpa: 3, target_gpa: 3.5, estimated_gpa: 4, reachable: true,
+    assert.equal(body.official_cgpa, 3.24);
+    return Response.json({current_gpa: 3.24, target_gpa: 3.5, estimated_gpa: 3.4, reachable: true,
       already_reached: false, strategy: "min_courses", max_grade: "AA", changes: []});
   });
   const result = await fetchAcademicSummary(courses, 3.24);
   assert.equal(result.officialCgpa, 3.24);
   assert.equal(result.derivedCgpa, 3.23);
-  assert.equal(result.currentGpa, 3.23);
-  await fetchTargetPlan(courses, {targetGpa: 3.5, maxGrade: "AA", strategy: "min_courses"});
+  assert.equal(result.currentGpa, 3.24);
+  const plan = await fetchTargetPlan(courses, {targetGpa: 3.5, maxGrade: "AA", strategy: "min_courses"}, 3.24);
+  assert.equal(plan.currentGpa, 3.24);
   assert.deepEqual(courses, before);
 });

@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from core.required_gpa_engine import calculate_required_semester_gpa
 from models.course import Course
 from parsers.transcript_parser import keep_latest_attempts
-from services.academic_summary_service import AcademicSummaryValidationError
+from services.academic_summary_service import (
+    AcademicSummaryValidationError,
+    validate_official_cgpa,
+)
 
 
 class RequiredGpaValidationError(AcademicSummaryValidationError):
@@ -35,6 +38,7 @@ def build_required_semester_gpa(
     courses: list[Course],
     target_gpa: object,
     future_gpa_weight: object,
+    official_cgpa: float | None = None,
 ) -> RequiredSemesterGpa:
     """
     Current points/weights use latest transcript attempts.
@@ -68,6 +72,7 @@ def build_required_semester_gpa(
         courses=active_courses,
         future_credits=numeric_weight,
         target_cgpa=numeric_target,
+        official_cgpa=validate_official_cgpa(official_cgpa),
     )
 
     return RequiredSemesterGpa(

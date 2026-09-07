@@ -4,11 +4,14 @@ import math
 from dataclasses import dataclass
 
 from core.future_semester_engine import calculate_projected_cgpa
-from core.gpa_engine import calculate_gpa
+from core.gpa_baseline import anchored_current
 from core.grade_scale import GRADE_POINTS
 from models.course import Course
 from parsers.transcript_parser import keep_latest_attempts
-from services.academic_summary_service import AcademicSummaryValidationError
+from services.academic_summary_service import (
+    AcademicSummaryValidationError,
+    validate_official_cgpa,
+)
 
 MAX_FUTURE_NAME_LENGTH = 200
 MAX_FUTURE_COURSES = 40
@@ -128,20 +131,20 @@ def validate_and_build_future_courses(
 def build_future_semester_projection(
     current_courses: list[Course],
     future_courses: list[Course],
+    official_cgpa: float | None = None,
 ) -> FutureSemesterProjection:
     """
-    Current GPA uses latest transcript attempts.
-
-    Future courses are additional planned coursework. The existing engine
-    adds their weights and points; it does not apply a retake/replacement
-    policy when a future label matches a current course code.
+    Current GPA uses latest transcript attempts, anchored to official CGPA
+    when the transcript printed one.
     """
 
+    official = validate_official_cgpa(official_cgpa)
     active_current = keep_latest_attempts(current_courses)
-    current_gpa = calculate_gpa(active_current)
+    current_gpa, _, _ = anchored_current(active_current, official)
     engine_result = calculate_projected_cgpa(
         current_courses=active_current,
         future_courses=future_courses,
+        official_cgpa=official,
     )
 
     return FutureSemesterProjection(

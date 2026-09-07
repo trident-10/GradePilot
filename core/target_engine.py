@@ -1,5 +1,5 @@
 ﻿from models.course import Course
-from core.gpa_engine import calculate_gpa
+from core.gpa_baseline import anchored_current
 from core.grade_scale import GRADE_POINTS
 GRADE_ORDER = [
     "FF",
@@ -22,7 +22,8 @@ VALID_STRATEGIES = {
 
 def analyze_target_gpa(
     courses: list[Course],
-    target_gpa: float
+    target_gpa: float,
+    official_cgpa: float | None = None,
 ) -> dict:
 
     if not 0.0 <= target_gpa <= 4.0:
@@ -30,16 +31,8 @@ def analyze_target_gpa(
             "Target GPA must be between 0.00 and 4.00"
         )
 
-    current_gpa = calculate_gpa(courses)
-
-    total_credits = sum(
-        course.gpa_credit
-        for course in courses
-    )
-
-    current_points = sum(
-        course.gpa_credit * GRADE_POINTS[course.grade]
-        for course in courses
+    current_gpa, current_points, total_credits = anchored_current(
+        courses, official_cgpa
     )
 
     target_points = target_gpa * total_credits
@@ -204,6 +197,7 @@ def find_target_plan(
     target_gpa: float,
     strategy: str = "min_courses",
     max_grade: str = "AA",
+    official_cgpa: float | None = None,
 ) -> dict:
 
     if strategy not in VALID_STRATEGIES:
@@ -213,7 +207,8 @@ def find_target_plan(
 
     target_analysis = analyze_target_gpa(
         courses,
-        target_gpa
+        target_gpa,
+        official_cgpa=official_cgpa,
     )
 
     if target_analysis["already_reached"]:

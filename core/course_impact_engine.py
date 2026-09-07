@@ -5,7 +5,8 @@ from core.scenario_engine import simulate_grade_change
 
 def analyze_course_impact(
     courses: list[Course],
-    course_code: str
+    course_code: str,
+    official_cgpa: float | None = None,
 ) -> dict:
 
     selected_course = None
@@ -34,7 +35,8 @@ def analyze_course_impact(
         result = simulate_grade_change(
             courses=courses,
             course_code=course_code,
-            new_grade=grade
+            new_grade=grade,
+            official_cgpa=official_cgpa,
         )
 
         scenarios.append({

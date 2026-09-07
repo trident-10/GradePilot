@@ -1,4 +1,5 @@
 from models.course import Course
+from core.gpa_baseline import anchored_current
 from core.gpa_engine import calculate_gpa
 from core.grade_scale import GRADE_POINTS
 
@@ -17,17 +18,12 @@ def calculate_future_semester_gpa(
 
 def calculate_projected_cgpa(
     current_courses: list[Course],
-    future_courses: list[Course]
+    future_courses: list[Course],
+    official_cgpa: float | None = None,
 ) -> dict:
 
-    current_credits = sum(
-        course.gpa_credit
-        for course in current_courses
-    )
-
-    current_points = sum(
-        course.gpa_credit * GRADE_POINTS[course.grade]
-        for course in current_courses
+    _, current_points, current_credits = anchored_current(
+        current_courses, official_cgpa
     )
 
     future_credits = sum(

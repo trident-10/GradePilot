@@ -90,14 +90,6 @@ export default function OverviewPage() {
               weightingMode={weightingMode}
               loading={summaryLoading}
             />
-            {gano.hasDiscrepancy && officialCgpa !== null && derivedCgpa !== null ? (
-              <p className="mt-3 text-sm leading-relaxed text-muted">
-                Transkriptteki resmî GANO ({formatGpa(officialCgpa)}) ile derslerden
-                hesaplanan değer ({formatGpa(derivedCgpa)}) belirgin şekilde farklı.
-                Ana kartta resmî GANO gösterilir; planlar ve senaryolar ders verileriyle
-                hesaplanır — not veya krediler otomatik değiştirilmez.
-              </p>
-            ) : null}
           </Reveal>
 
           <div className="grid items-stretch gap-4 sm:gap-5 xl:grid-cols-2">
@@ -152,9 +144,13 @@ export default function OverviewPage() {
                 Planlamada kullanılan GANO
               </p>
               <p className="mt-2 font-display text-[2rem] font-semibold leading-none tabular-nums tracking-[-0.04em] text-ink">
-                {derivedCgpa === null ? "—" : formatGpa(derivedCgpa)}
+                {gano.value === null ? "—" : formatGpa(gano.value)}
               </p>
-              <p className="mt-2 text-xs leading-5 text-muted">Ders ve kredi verilerinden hesaplanır.</p>
+              <p className="mt-2 text-xs leading-5 text-muted">
+                {gano.isOfficial
+                  ? "Transkriptteki resmî GANO baz alınır."
+                  : "Ders ve kredi verilerinden hesaplanır."}
+              </p>
               <div className="mt-4 divide-y divide-accent/20 border-t border-accent/15 pt-1">
                 <DashboardLink href="/planlayici">
                   Plan oluştur
