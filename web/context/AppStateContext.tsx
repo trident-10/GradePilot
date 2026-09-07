@@ -42,6 +42,7 @@ import {
   type UserFacingError,
 } from "@/lib/errorModel";
 import { MAX_TRANSCRIPT_UPLOAD_BYTES } from "@/lib/uploadLimits";
+import { validOfficialCgpa } from "@/lib/gpaPresentation";
 import {
   selectActiveCourses,
   selectHistoricalCourses,
@@ -128,6 +129,7 @@ type AppStateContextValue = {
   submitManualMapping: (
     localCreditField: string | null,
     ectsField: string | null,
+    weightingField?: "credit" | "ects",
   ) => Promise<void>;
   selectCreditOption: (optionId: string) => Promise<void>;
   confirmCourses: () => void;
@@ -323,13 +325,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     clearSummary();
   }, [clearSummary]);
 
-  const loadAcademicSummary = useCallback(async (courses: Course[]) => {
+  const loadAcademicSummary = useCallback(async (courses: Course[], officialCgpa: number | null = null) => {
     setSummaryLoading(true);
     setSummaryError(null);
     setAcademicSummary(null);
 
     try {
-      const summary = await fetchAcademicSummary(courses);
+      const summary = await fetchAcademicSummary(courses, officialCgpa);
       setAcademicSummary(summary);
     } catch (error) {
       console.error("Academic summary failed", error);
@@ -350,11 +352,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setTranscript({
         formatName: nextFormat,
         warnings: nextWarnings,
-        officialCgpa,
+        officialCgpa: validOfficialCgpa(officialCgpa),
         courses,
       });
       setPhase("ready");
-      await loadAcademicSummary(courses);
+      await loadAcademicSummary(courses, officialCgpa);
       router.replace("/genel-bakis");
     },
     [clearManualScenario, loadAcademicSummary, router],
@@ -408,7 +410,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           ...EMPTY_RESULT,
           formatName: response.format,
           warnings: response.warnings ?? [],
-          officialCgpa: response.official_summary?.cgpa ?? null,
+          officialCgpa: validOfficialCgpa(response.official_summary?.cgpa),
         });
         clearSummary();
         return;
@@ -475,6 +477,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     async (
       localCreditField: string | null,
       ectsField: string | null,
+      weightingField?: "credit" | "ects",
     ) => {
       if (!uploadedFile) {
         setError(toUserFacingError(new Error("Missing uploaded file")));
@@ -492,10 +495,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setPhase("uploading");
       setError(null);
       setSemanticMapping(nextMapping);
+      setWeightingMode(weightingField ?? null);
       clearSummary();
 
       try {
-        const response = await analyzeTranscript(uploadedFile, nextMapping);
+        const response = await analyzeTranscript(uploadedFile, {
+          ...nextMapping,
+          weightingField,
+        });
         await applyAnalyzeResponse(response);
       } catch (error) {
         if (process.env.NODE_ENV !== "production") {
@@ -569,8 +576,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     if (courses.length === 0) {
       return;
     }
-    await loadAcademicSummary(courses);
-  }, [loadAcademicSummary, transcript?.courses]);
+    await loadAcademicSummary(courses, transcript?.officialCgpa ?? null);
+  }, [loadAcademicSummary, transcript?.courses, transcript?.officialCgpa]);
 
   const requestTargetPlan = useCallback(
     async (input: {

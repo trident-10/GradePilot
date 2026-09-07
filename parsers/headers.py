@@ -29,6 +29,7 @@ def split_cells(line: str) -> list[str]:
 class HeaderSchema:
     columns: tuple[str, ...]
     delimited: bool = False
+    labels: tuple[str, ...] = ()
 
     @property
     def data_columns(self) -> tuple[str, ...]:
@@ -43,6 +44,15 @@ class HeaderSchema:
     @property
     def name_position(self) -> int:
         return -self.data_columns.index("grade")
+
+    @property
+    def candidate_columns(self) -> dict[int, str | None]:
+        """Only credit or genuinely unknown cells may be offered for mapping."""
+        data = [(column, self.labels[i] if self.labels else None)
+                for i, column in enumerate(self.columns) if column not in {"code", "name"}]
+        grade = self.data_columns.index("grade")
+        return {i - grade: label for i, (column, label) in enumerate(data)
+                if column in {"local_credit", "ects", "unknown"}}
 
     def bind_cells(self, line: str):
         """Preserve each explicit cell, including empty/unknown columns."""
@@ -63,13 +73,13 @@ class HeaderSchema:
 # Unknown headings invalidate the plain-text fallback; explicit cells retain them.
 HEADER_CELL = re.compile(
     r"\b(?P<local_credit>local\s+credit|course\s+credit|ulusal\s+kredi|"
-    r"yerel\s+kredi|national\s+credits?|credits?|kredisi|kredi|uk)\b|"
+    r"yerel\s+kredi|national\s+credits?|credits?|kredisi|kredi|uk|cr)\b|"
     r"\b(?P<ects>akts\s*/\s*ects|ects\s*/\s*akts|akts|ects)\b|"
     r"\b(?P<other>t\s*\+\s*u(?:\s*\+\s*l)?|numeric\s+grade|sayisal\s+not|basari\s+notu|"
-    r"grade\s+points?|quality\s+points?|not\s+katsayisi|katsayi|"
+    r"grade\s+points?|quality\s+points?|not\s+katsayisi|katsayi|coefficient|"
     r"puan|points?|score|teorik|uygulama|laboratuvar|hours?|t|u|l|"
-    r"dersin\s+statusu|course\s+status|ogretim\s+dili|language|"
-    r"aciklama|comment|durum|status|sonuc)\b|"
+    r"dersin\s+statusu|course\s+status|ogretim\s+dili|d\.\s*dili|language|"
+    r"aciklama|explanation|comment|total|durum|status|sonuc)\b|"
     r"\b(?P<grade>letter\s+grade|harf\s+notu|harf\s+not|harf|grade|notu|not)\b"
 )
 
@@ -78,15 +88,25 @@ def recognize_header(line: str) -> HeaderSchema | None:
     cells = split_cells(line)
     if len(cells) >= 3:
         columns = []
+        labels = []
         for cell in cells:
             normalized = fold(cell)
             field = next((key for key, aliases in IDENTIFIER_ALIASES.items() if normalized in aliases), None)
             match = HEADER_CELL.fullmatch(normalized)
-            columns.append(field or (match.lastgroup if match else "unknown"))
+            # Narrow PDF gaps can join several known headings in one cell.
+            # Expand only a fully recognized band; unknown metadata stays one cell.
+            band = list(HEADER_CELL.finditer(normalized))
+            if not field and not match and band and not HEADER_CELL.sub("", normalized).strip():
+                columns.extend(item.lastgroup for item in band)
+                labels.extend(cell[item.start():item.end()] for item in band)
+            else:
+                columns.append(field or (match.lastgroup if match else "unknown"))
+                labels.append(cell)
         if (columns.count("grade") == 1
-                and any(field in columns for field in ("local_credit", "ects"))
+                and (any(field in columns for field in ("local_credit", "ects"))
+                     or {"code", "name"}.issubset(columns))
                 and all(columns.count(field) <= 1 for field in ("local_credit", "ects", "code", "name"))):
-            return HeaderSchema(tuple(columns), delimited=True)
+            return HeaderSchema(tuple(columns), delimited=True, labels=tuple(labels))
     normalized = fold(line)
     matches = list(HEADER_CELL.finditer(normalized))
     columns = [match.lastgroup for match in matches]
@@ -100,7 +120,7 @@ def recognize_header(line: str) -> HeaderSchema | None:
         # A neighbouring table's identifiers must not be swallowed as the
         # trailing portion of an otherwise valid flat header.
         return None
-    return HeaderSchema(tuple(columns))
+    return HeaderSchema(tuple(columns), labels=tuple(line[m.start():m.end()] for m in matches))
 
 
 def header_positions(line: str) -> dict[str, int] | None:

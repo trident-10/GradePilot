@@ -1,9 +1,12 @@
 import { ApiClientError } from "@/lib/api/transcripts";
 import { getApiBaseUrl } from "@/lib/config";
 import type { Course } from "@/lib/types";
+import { validOfficialCgpa } from "@/lib/gpaPresentation";
 
 export type AcademicSummaryResponse = {
   current_gpa: number;
+  official_cgpa?: number | null;
+  derived_cgpa?: number;
   total_gpa_weight: number;
   active_course_count: number;
   semesters: Array<{
@@ -15,7 +18,10 @@ export type AcademicSummaryResponse = {
 };
 
 export type AcademicSummary = {
+  /** Legacy course-derived GPA used by planner consumers. */
   currentGpa: number;
+  officialCgpa: number | null;
+  derivedCgpa: number;
   totalGpaWeight: number;
   activeCourseCount: number;
   semesters: Array<{
@@ -131,15 +137,18 @@ async function postJson(url: string, body: unknown): Promise<unknown> {
 
 export async function fetchAcademicSummary(
   courses: Course[],
+  officialCgpa: number | null = null,
 ): Promise<AcademicSummary> {
   const payload = await postJson(`${getApiBaseUrl()}/api/academic/summary`, {
     courses: serializeCourses(courses),
+    official_cgpa: validOfficialCgpa(officialCgpa),
   });
 
   const data = payload as AcademicSummaryResponse;
   if (
     !data ||
     typeof data.current_gpa !== "number" ||
+    (data.derived_cgpa !== undefined && (typeof data.derived_cgpa !== "number" || !Number.isFinite(data.derived_cgpa))) ||
     typeof data.total_gpa_weight !== "number" ||
     typeof data.active_course_count !== "number" ||
     !Array.isArray(data.semesters)
@@ -152,6 +161,8 @@ export async function fetchAcademicSummary(
 
   return {
     currentGpa: data.current_gpa,
+    officialCgpa: validOfficialCgpa(data.official_cgpa),
+    derivedCgpa: data.derived_cgpa ?? data.current_gpa,
     totalGpaWeight: data.total_gpa_weight,
     activeCourseCount: data.active_course_count,
     semesters: data.semesters.map((row) => ({

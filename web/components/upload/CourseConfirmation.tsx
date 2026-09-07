@@ -5,6 +5,7 @@ import {
   GhostButton,
   GradeBadge,
   InfoNote,
+  InlineNotice,
   PageHeader,
   PrimaryButton,
 } from "@/components/ui";
@@ -22,7 +23,8 @@ function userFacingWarning(warning: string): string | null {
   const normalized = warning.toLocaleLowerCase("tr-TR");
 
   // Confirmation page already asks the user to review courses — skip this noise.
-  if (normalized.includes("generic parsing was used")) {
+  if (normalized.includes("generic parsing was used") ||
+      normalized === "ders bilgilerini, kredileri ve dönem dağılımını kontrol edip onaylayın.") {
     return null;
   }
   if (normalized.includes("no courses were extracted")) {
@@ -37,6 +39,10 @@ function userFacingWarning(warning: string): string | null {
   }
 
   return "Bazı ders bilgileri otomatik olarak doğrulanamadı. Lütfen tabloyu dikkatlice kontrol edin.";
+}
+
+function isGpaMismatch(warning: string) {
+  return warning.toLocaleLowerCase("tr-TR").includes("derslerden hesaplanan gano ile transkriptte yazan genel ortalama uyuşmuyor");
 }
 
 function SummaryItem({ children }: { children: string }) {
@@ -54,7 +60,7 @@ function SummaryItem({ children }: { children: string }) {
 }
 
 export function CourseConfirmation() {
-  const { pendingCourses, warnings, confirmCourses, resetTranscript } =
+  const { pendingCourses, warnings, confirmCourses, resetTranscript, retryUpload, isBusy } =
     useAppState();
   const semesterCount = new Set(
     pendingCourses
@@ -62,9 +68,11 @@ export function CourseConfirmation() {
       .filter((semester): semester is string => Boolean(semester)),
   ).size;
   const repeatedCourseCount = selectHistoricalCourses(pendingCourses).length;
+  const hasGpaMismatch = warnings.some(isGpaMismatch);
   const visibleWarnings = [
     ...new Set(
       warnings
+        .filter((warning) => !isGpaMismatch(warning))
         .map(userFacingWarning)
         .filter((warning): warning is string => warning !== null),
     ),
@@ -95,7 +103,7 @@ export function CourseConfirmation() {
                 strokeWidth="1.7"
               />
             </svg>
-            BAŞARILI
+            PDF OKUNDU
           </span>
           <h2 className="mt-3 text-lg font-bold tracking-[-0.025em] text-ink">
             Transkript özeti hazır
@@ -116,6 +124,20 @@ export function CourseConfirmation() {
             </SummaryItem>
           </ul>
         </section>
+      ) : null}
+
+      {hasGpaMismatch ? (
+        <div>
+          <InlineNotice tone="caution">
+            <span className="block font-semibold">Genel ortalamayı kontrol edelim</span>
+            <span className="mt-1 block">
+              Derslerden hesaplanan GANO ile PDF’de yazan genel ortalama farklı.
+              Seçtiğiniz kredi sistemini, dersleri ve tekrar alınan derslerin son notlarını kontrol edin.
+              Ana GANO kartında transkriptteki resmî ortalama gösterilir.
+              Planlar ise derslerden hesaplanan GANO ile hazırlanır; ders ve not bilgileri değiştirilmez.
+            </span>
+          </InlineNotice>
+        </div>
       ) : null}
 
       {visibleWarnings.length > 0 ? (
@@ -177,13 +199,18 @@ export function CourseConfirmation() {
         <PrimaryButton
           type="button"
           className="w-full sm:w-auto"
-          disabled={pendingCourses.length === 0}
+          disabled={pendingCourses.length === 0 || isBusy}
           onClick={() => {
             confirmCourses();
           }}
         >
-          Bilgiler Doğru, Analize Devam Et
+          {hasGpaMismatch ? "Farkı Gördüm, Analize Devam Et" : "Bilgiler Doğru, Analize Devam Et"}
         </PrimaryButton>
+        {hasGpaMismatch ? (
+          <GhostButton type="button" className="w-full sm:w-auto" disabled={isBusy} onClick={() => { void retryUpload(); }}>
+            Kredi Sistemini Değiştir
+          </GhostButton>
+        ) : null}
         <GhostButton
           type="button"
           className="w-full sm:w-auto"

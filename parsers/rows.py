@@ -5,7 +5,7 @@ import re
 
 from core.grade_scale import GRADE_POINTS
 from parsers.text_normalization import fold, normalize_text, number
-from parsers.headers import is_course_identifier, recognize_header, split_cells
+from parsers.headers import HeaderSchema, is_course_identifier, recognize_header, split_cells
 from parsers.summary_labels import is_summary_line
 
 
@@ -61,6 +61,7 @@ class TranscriptRow:
     header_confidence: str = "high"
     name_relative_position: int | None = None
     grade_hint: int | None = None
+    column_schema: HeaderSchema | None = None
 
     @property
     def grade_index(self) -> int | None:
@@ -124,7 +125,7 @@ def read_rows(text: str) -> list[TranscriptRow]:
             code = CODE_PATTERN.fullmatch(bound[0])
             bound[0] = (code[1] + code[2]).upper() if code else bound[0].upper()
             current = TranscriptRow(bound, semester, line_index, fields, confidence, name_position,
-                                    2 + schema.data_columns.index("grade"))
+                                    2 + schema.data_columns.index("grade"), schema)
             rows.append(current)
             continue
         # T+U is one hours cell, even when the PDF puts spaces around '+'.
@@ -135,13 +136,15 @@ def read_rows(text: str) -> list[TranscriptRow]:
                 and any(c.isalpha() for c in structural_code[2])
                 and len(structural_code[2].split()) >= 3):
             parts = [structural_code[1].upper(), *structural_code[2].split()]
-            current = TranscriptRow(parts, semester, line_index, fields, confidence, name_position)
+            current = TranscriptRow(parts, semester, line_index, fields, confidence, name_position,
+                                    column_schema=schema)
             rows.append(current)
             continue
         if code:
             parts = [(code[1] + code[2]).upper(), *line[code.end():].split()]
             parts = [p.rstrip("*") if GRADE_PATTERN.fullmatch(p.rstrip("*")) else p for p in parts]
-            current = TranscriptRow(parts, semester, line_index, fields, confidence, name_position)
+            current = TranscriptRow(parts, semester, line_index, fields, confidence, name_position,
+                                    column_schema=schema)
             rows.append(current)
             continue
         years = YEAR_PATTERN.search(fold(line))
@@ -152,11 +155,12 @@ def read_rows(text: str) -> list[TranscriptRow]:
             semester = label  # An incomplete new heading must not inherit the old term.
             current = None
             continue
-        if BOUNDARY_PATTERN.search(fold(line)):
+        detected = recognize_header(raw)
+        # "Açıklama", "Total" etc. can be column headings, not table boundaries.
+        if detected is None and BOUNDARY_PATTERN.search(fold(line)):
             current = None
             continue
-        detected = recognize_header(raw)
-        headerish = bool(re.search(r"\b(credit|credits|kredi|akts|ects|grade|not|notu)\b", fold(line)))
+        headerish = detected is not None or bool(re.search(r"\b(credit|credits|kredi|uk|cr|akts|ects|grade|not|notu)\b", fold(line)))
         if headerish:
             combined = previous_header + " " + line
             schema = detected or recognize_header(combined)

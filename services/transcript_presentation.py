@@ -19,6 +19,7 @@ ISSUE_MESSAGES = {
     "missing_semesters": "Bazı derslerin dönem bilgisi bulunamadı; dönem dağılımını kontrol edin.",
     "incomplete_selected_credit": "Bazı derslerin seçilen kredi alanı okunamadı. Eksik derslerle GANO hesaplanamaz.",
     "conflicting_official_values": "Transkriptte aynı resmi özet alanı için farklı değerler bulundu; kaynak değerleri kontrol edin.",
+    "official_gpa_mismatch": "Derslerden hesaplanan GANO ile transkriptte yazan genel ortalama uyuşmuyor. Kredi sistemini, dersleri ve tekrar alınan derslerin son notlarını kontrol edin. Planlar derslerden hesaplanan GANO ile hazırlanır.",
 }
 
 
@@ -116,7 +117,7 @@ def build_mapping_candidates(
         letter = chr(ord("A") + index) if index < 26 else str(index + 1)
         candidates.append(
             MappingCandidate(
-                label=f"Sütun {letter}",
+                label=candidate.header_label or f"Sütun {letter}",
                 field_key=relative_field_key(candidate.relative_position),
                 sample_values=candidate.values[:5],
                 confidence=candidate.confidence,

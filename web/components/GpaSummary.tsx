@@ -5,9 +5,10 @@ import {
   weightUnitLabel,
   weightingChip,
 } from "@/lib/display";
+import { gpaPresentation } from "@/lib/gpaPresentation";
 
 type GpaSummaryProps = {
-  currentGpa: number | null;
+  derivedCgpa: number | null;
   officialCgpa?: number | null;
   totalGpaWeight: number | null;
   activeCourses: number | null;
@@ -18,7 +19,7 @@ type GpaSummaryProps = {
 };
 
 export function GpaSummary({
-  currentGpa,
+  derivedCgpa,
   officialCgpa = null,
   totalGpaWeight,
   activeCourses,
@@ -27,6 +28,7 @@ export function GpaSummary({
   weightingMode,
   loading = false,
 }: GpaSummaryProps) {
+  const gano = gpaPresentation(officialCgpa, derivedCgpa);
   if (loading) {
     return (
       <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 lg:grid-cols-5">
@@ -46,9 +48,15 @@ export function GpaSummary({
       <div className="col-span-2 h-full lg:col-span-2">
         <MetricTile
           strong
-          label="Hesaplanan GANO"
-          value={currentGpa === null ? "—" : formatGpa(currentGpa)}
-          hint={`${weightingChip(weightingMode)}${officialCgpa === null ? "" : ` · PDF'deki GANO: ${formatGpa(officialCgpa)}`}`}
+          label={gano.label}
+          value={gano.value === null ? "—" : formatGpa(gano.value)}
+          hint={
+            gano.isOfficial
+              ? gano.derivedSecondary
+                ? `${gano.source} · ${gano.derivedSecondary}`
+                : gano.source
+              : `${weightingChip(weightingMode)} · ${gano.source}`
+          }
         />
       </div>
       <MetricTile

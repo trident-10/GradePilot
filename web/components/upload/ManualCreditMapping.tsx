@@ -4,26 +4,30 @@ import { useState } from "react";
 import { GhostButton, InlineNotice, PrimaryButton, Section } from "@/components/ui";
 import { useAppState } from "@/context/AppStateContext";
 import { TranscriptValidationFrame } from "@/components/upload/TranscriptValidationFrame";
+import { cx } from "@/lib/display";
+
+const systems = [
+  { id: "credit", label: "Kredi / Ulusal Kredi (UK)" },
+  { id: "ects", label: "AKTS / ECTS" },
+] as const;
 
 export function ManualCreditMapping() {
   const { mappingCandidates, isBusy, error, submitManualMapping, resetTranscript } = useAppState();
-  const [localCreditField, setLocalCreditField] = useState("");
-  const [ectsField, setEctsField] = useState("");
-  const duplicate = localCreditField !== "" && localCreditField === ectsField;
-  const canContinue = mappingCandidates.length > 0 &&
-    (localCreditField !== "" || ectsField !== "") && !duplicate && !isBusy;
+  const [system, setSystem] = useState<"credit" | "ects" | null>(null);
+  const [selectedColumn, setSelectedColumn] = useState("");
   const candidates = mappingCandidates.map((candidate, index) => ({
     ...candidate,
     label: candidate.label.trim() || `Sütun ${String.fromCharCode(65 + index)}`,
   }));
+  const canContinue = system !== null && candidates.some((candidate) => candidate.id === selectedColumn) && !isBusy;
 
   return (
     <TranscriptValidationFrame>
       <Section
-        title="Kredi sütunlarını eşleştir"
-        description="Bazı başlıklar okunamadı. PDF’deki kredi ve AKTS sütunlarını aşağıdaki örneklerle karşılaştırın."
+        title="Kredi bilgisini doğrulayalım"
+        description="Derslerinizi okuduk, ancak kredi başlığını kesinleştiremedik. Yalnızca GANO’da kullanılan bilgiyi doğrulamanız yeterli."
       >
-        <div className="space-y-5">
+        <div className="space-y-6">
           {error ? (
             <div role="alert">
               <InlineNotice tone="caution">{error.description} Seçiminizi buradan düzeltebilirsiniz.</InlineNotice>
@@ -33,51 +37,72 @@ export function ManualCreditMapping() {
             <InlineNotice tone="caution">Kredi sütunu bulunamadı. Yeni bir PDF seçin.</InlineNotice>
           ) : (
             <>
-              <div className="overflow-hidden rounded-xl border border-rule">
-                <table className="w-full text-left text-sm">
-                  <caption className="sr-only">Okunan sütunlar ve ilk derslerden örnek değerler</caption>
-                  <thead className="bg-surface-muted text-muted">
-                    <tr><th scope="col" className="px-3 py-2.5 font-medium">Sütun</th><th scope="col" className="px-3 py-2.5 font-medium">Örnek değerler</th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-rule">
-                    {candidates.map((candidate) => (
-                      <tr key={candidate.id}>
-                        <th scope="row" className="px-3 py-2.5 font-medium text-ink">{candidate.label}</th>
-                        <td className="px-3 py-2.5 tabular-nums text-muted">{candidate.sampleValues.slice(0, 4).join(" · ") || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {[
-                  { id: "local-credit-column", label: "Kredi / Ulusal kredi", value: localCreditField, setValue: setLocalCreditField, other: ectsField },
-                  { id: "ects-column", label: "AKTS / ECTS", value: ectsField, setValue: setEctsField, other: localCreditField },
-                ].map((field) => (
-                  <div key={field.id} className="min-w-0">
-                    <label htmlFor={field.id} className="mb-2 block text-sm font-semibold text-ink">{field.label}</label>
-                    <select id={field.id} value={field.value} disabled={isBusy}
-                      onChange={(event) => field.setValue(event.target.value)}
-                      className="min-h-11 w-full rounded-xl border border-rule bg-surface px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-accent">
-                      <option value="">Seçilmedi</option>
-                      {candidates.map((candidate) => (
-                        <option key={candidate.id} value={candidate.id} disabled={candidate.id === field.other}>{candidate.label}</option>
-                      ))}
-                    </select>
+              <fieldset disabled={isBusy} className="min-w-0" aria-describedby="credit-system-help">
+                <legend className="mb-3 text-base font-semibold text-ink">GANO hesabında hangi sistem kullanılıyor?</legend>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {systems.map((option) => (
+                    <label key={option.id} className={cx(
+                      "flex min-h-16 min-w-0 cursor-pointer items-center gap-3 rounded-xl border p-4 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent",
+                      system === option.id ? "border-accent bg-accent-soft" : "border-rule bg-surface-muted/40",
+                    )}>
+                      <input type="radio" name="gano-credit-system" value={option.id}
+                        checked={system === option.id}
+                        onChange={() => { setSystem(option.id); setSelectedColumn(""); }}
+                        className="size-5 shrink-0 accent-[var(--accent)]" />
+                      <span className="text-sm font-semibold text-ink">{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <p id="credit-system-help" className="mt-3 text-sm leading-6 text-muted">
+                  Emin değilseniz transkriptinizdeki açıklamayı veya üniversitenizin not yönetmeliğini kontrol edin.
+                </p>
+              </fieldset>
+              {system !== null ? (
+                <fieldset disabled={isBusy} className="min-w-0" aria-describedby="credit-column-help">
+                  <legend className="mb-2 text-base font-semibold text-ink">
+                    PDF’deki {system === "credit" ? "Kredi / UK" : "AKTS / ECTS"} değerleri hangi kartla aynı?
+                  </legend>
+                  <p id="credit-column-help" className="mb-4 text-sm leading-6 text-muted">
+                    İlk derslerin değerlerini PDF’nizle karşılaştırıp tek bir kart seçin. Diğer sütunları seçmenize gerek yok.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {candidates.map((candidate) => {
+                      const active = candidate.id === selectedColumn;
+                      return (
+                        <label key={candidate.id} className={cx(
+                          "min-w-0 cursor-pointer rounded-xl border p-4 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent",
+                          active ? "border-accent bg-accent-soft shadow-[inset_3px_0_0_0_var(--accent)]" : "border-rule bg-surface-muted/40",
+                        )}>
+                          <span className="flex items-center gap-3">
+                            <input type="radio" name="gano-credit-column" value={candidate.id}
+                              checked={active} onChange={() => setSelectedColumn(candidate.id)}
+                              className="size-5 shrink-0 accent-[var(--accent)]" />
+                            <span className="min-w-0 break-words text-base font-semibold text-ink">{candidate.label}</span>
+                            {active ? <span aria-hidden className="ml-auto shrink-0 text-xs font-semibold text-accent">Seçildi</span> : null}
+                          </span>
+                          <span className="mt-3 block text-xs text-muted">İlk derslerden örnekler</span>
+                          <span className="mt-2 flex flex-wrap gap-2">
+                            {candidate.sampleValues.slice(0, 4).map((value, index) => (
+                              <span key={index} className="min-w-10 rounded-lg border border-rule bg-surface px-3 py-2 text-center text-lg font-semibold tabular-nums text-ink">{value}</span>
+                            ))}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
-              <p className="text-sm leading-6 text-muted">En az bir alan seçin. PDF’de bulunmayan alanı boş bırakın. T ve U ders saatlerini, Puan ise not puanını gösterir; kredi için bu alanları seçmeyin.</p>
-              {duplicate ? <InlineNotice tone="caution">Kredi ve AKTS için farklı sütunlar seçin.</InlineNotice> : null}
+                </fieldset>
+              ) : null}
             </>
           )}
         </div>
       </Section>
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <PrimaryButton type="button" disabled={!canContinue} onClick={() => {
-          if (canContinue) void submitManualMapping(localCreditField || null, ectsField || null);
-        }}>{isBusy ? "Hazırlanıyor…" : "Devam Et"}</PrimaryButton>
-        <GhostButton type="button" disabled={isBusy} onClick={resetTranscript}>Yeni PDF Seç</GhostButton>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <PrimaryButton type="button" className="w-full sm:w-auto" disabled={!canContinue} onClick={() => {
+          if (canContinue && system !== null) {
+            void submitManualMapping(system === "credit" ? selectedColumn : null, system === "ects" ? selectedColumn : null, system);
+          }
+        }}>{isBusy ? "Hazırlanıyor…" : "Analize Devam Et"}</PrimaryButton>
+        <GhostButton type="button" className="w-full sm:w-auto" disabled={isBusy} onClick={resetTranscript}>Yeni PDF Seç</GhostButton>
       </div>
     </TranscriptValidationFrame>
   );

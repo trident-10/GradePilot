@@ -188,3 +188,21 @@ test("successful transcript analysis and caller selections are preserved", async
     weightingField: "local_credit", localCreditField: "numeric_0",
   }), payload);
 });
+
+for (const [system, field, wireField] of [
+  ["credit", "localCreditField", "local_credit_field"],
+  ["ects", "ectsField", "ects_field"],
+]) {
+  test(`single ${system} column selection includes weighting without requiring the other role`, async (t) => {
+    const payload = { status: "confirmation", courses: [], warnings: [] };
+    t.mock.method(globalThis, "fetch", async (_url, options) => {
+      assert.equal(options.body.get("weighting_field"), system);
+      assert.equal(options.body.get(wireField), "column_1");
+      assert.equal(options.body.has(system === "credit" ? "ects_field" : "local_credit_field"), false);
+      return Response.json(payload);
+    });
+    assert.deepEqual(await analyzeTranscript(file, {
+      weightingField: system, [field]: "column_1",
+    }), payload);
+  });
+}

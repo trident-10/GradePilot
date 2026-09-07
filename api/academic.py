@@ -65,7 +65,7 @@ def academic_summary(
         courses = validate_and_build_courses(
             [course.model_dump() for course in payload.courses]
         )
-        summary = build_academic_summary(courses)
+        summary = build_academic_summary(courses, official_cgpa=payload.official_cgpa)
     except AcademicSummaryValidationError as exc:
         raise HTTPException(
             status_code=400,
@@ -84,6 +84,8 @@ def academic_summary(
 
     return AcademicSummaryResponse(
         current_gpa=summary.current_gpa,
+        official_cgpa=summary.official_cgpa,
+        derived_cgpa=summary.derived_cgpa,
         total_gpa_weight=summary.total_gpa_weight,
         active_course_count=summary.active_course_count,
         semesters=[

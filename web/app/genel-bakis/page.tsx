@@ -21,6 +21,7 @@ import {
 import { useAppState } from "@/context/AppStateContext";
 import { cx, formatGpa, weightUnitLabel } from "@/lib/display";
 import { gradeBarClass } from "@/lib/gradeColors";
+import { gpaPresentation } from "@/lib/gpaPresentation";
 import {
   countActiveGrades,
   highestSemesterSummary,
@@ -39,7 +40,9 @@ export default function OverviewPage() {
     transcript,
   } = useAppState();
 
-  const currentGpa = academicSummary?.currentGpa ?? null;
+  const derivedCgpa = academicSummary?.derivedCgpa ?? academicSummary?.currentGpa ?? null;
+  const officialCgpa = academicSummary?.officialCgpa ?? transcript?.officialCgpa ?? null;
+  const gano = gpaPresentation(officialCgpa, derivedCgpa);
   const totalGpaWeight = academicSummary?.totalGpaWeight ?? null;
   const activeCount = academicSummary?.activeCourseCount ?? null;
   const semesterCount = academicSummary
@@ -78,8 +81,8 @@ export default function OverviewPage() {
 
           <Reveal>
             <GpaSummary
-              currentGpa={currentGpa}
-              officialCgpa={transcript?.officialCgpa}
+              derivedCgpa={derivedCgpa}
+              officialCgpa={officialCgpa}
               totalGpaWeight={totalGpaWeight}
               activeCourses={activeCount}
               semesterCount={semesterCount}
@@ -87,12 +90,12 @@ export default function OverviewPage() {
               weightingMode={weightingMode}
               loading={summaryLoading}
             />
-            {transcript?.officialCgpa != null && currentGpa !== null &&
-              formatGpa(transcript.officialCgpa) !== formatGpa(currentGpa) ? (
+            {gano.hasDiscrepancy && officialCgpa !== null && derivedCgpa !== null ? (
               <p className="mt-3 text-sm leading-relaxed text-muted">
-                PDF’deki GANO {formatGpa(transcript.officialCgpa)}, derslerden hesaplanan GANO {formatGpa(currentGpa)}.
-                {" "}Hesaplama seçtiğin kredi sistemi ve tekrar edilen derslerin son notuyla yapılır.
-                Planlar hesaplanan GANO’yu kullanır.
+                Transkriptteki resmî GANO ({formatGpa(officialCgpa)}) ile derslerden
+                hesaplanan değer ({formatGpa(derivedCgpa)}) belirgin şekilde farklı.
+                Ana kartta resmî GANO gösterilir; planlar ve senaryolar ders verileriyle
+                hesaplanır — not veya krediler otomatik değiştirilmez.
               </p>
             ) : null}
           </Reveal>
@@ -146,11 +149,12 @@ export default function OverviewPage() {
             />
             <Panel title="Hızlı planlama" variant="action" className="xl:sticky xl:top-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
-                Mevcut GANO
+                Planlamada kullanılan GANO
               </p>
               <p className="mt-2 font-display text-[2rem] font-semibold leading-none tabular-nums tracking-[-0.04em] text-ink">
-                {currentGpa === null ? "—" : formatGpa(currentGpa)}
+                {derivedCgpa === null ? "—" : formatGpa(derivedCgpa)}
               </p>
+              <p className="mt-2 text-xs leading-5 text-muted">Ders ve kredi verilerinden hesaplanır.</p>
               <div className="mt-4 divide-y divide-accent/20 border-t border-accent/15 pt-1">
                 <DashboardLink href="/planlayici">
                   Plan oluştur

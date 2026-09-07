@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 from core.gpa_engine import calculate_gpa
 from core.grade_scale import GRADE_POINTS
@@ -27,6 +28,8 @@ class AcademicSummary:
     total_gpa_weight: float
     active_course_count: int
     semesters: list[SemesterSummary]
+    official_cgpa: float | None
+    derived_cgpa: float
 
 
 def validate_and_build_courses(
@@ -142,12 +145,23 @@ def validate_and_build_courses(
     return courses
 
 
-def build_academic_summary(courses: list[Course]) -> AcademicSummary:
+def build_academic_summary(
+    courses: list[Course], *, official_cgpa: float | None = None,
+) -> AcademicSummary:
     """
     Cumulative GANO uses latest attempts.
     Semester GPAs use historical attempts as returned by calculate_semester_gpas.
+    Official CGPA is display/validation metadata, never an engine input.
+    current_gpa remains the derived value for legacy calculation consumers.
     """
 
+    if official_cgpa is not None and (
+        isinstance(official_cgpa, bool)
+        or not isinstance(official_cgpa, (int, float))
+        or not math.isfinite(official_cgpa)
+        or not 0 <= official_cgpa <= 4
+    ):
+        raise AcademicSummaryValidationError("Official CGPA must be between 0.00 and 4.00.")
     active_courses = keep_latest_attempts(courses)
     current_gpa = calculate_gpa(active_courses)
     total_gpa_weight = sum(
@@ -170,4 +184,6 @@ def build_academic_summary(courses: list[Course]) -> AcademicSummary:
         total_gpa_weight=float(total_gpa_weight),
         active_course_count=len(active_courses),
         semesters=semesters,
+        official_cgpa=official_cgpa,
+        derived_cgpa=float(current_gpa),
     )

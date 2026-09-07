@@ -1,8 +1,11 @@
 """Application policy: mapping, weighting and review transitions."""
 from models.credit_fields import parse_relative_field_key, relative_field_key
 from models.transcript_ingestion import IngestionDecision
+from models.transcript_extraction import ExtractionIssue
+from core.gpa_engine import calculate_gpa
 from parsers.document_parser import extract_transcript
 from parsers.gpa_weighting import apply_gpa_weighting
+from parsers.transcript_parser import keep_latest_attempts
 from services.transcript_errors import TranscriptStructureError
 from validation.transcript_validation import validate_selected_field, validate_transcript
 from validation.mapping_validation import MappingValidationError, validate_mapping
@@ -57,8 +60,19 @@ def run_transcript_workflow(
     if mapping is not None and selected_report.errors:
         raise MappingValidationError("incomplete_mapping")
     _raise_errors(selected_report)
+    courses = apply_gpa_weighting(extraction.courses, field)
+    official = extraction.document.summary.cgpa
+    latest = keep_latest_attempts(courses)
+    if (official is not None and 0 <= official <= 4
+            and sum(course.gpa_credit for course in latest) > 0
+            and abs(calculate_gpa(latest) - official) > 0.011):
+        # Compare using the existing engine and repeat policy. A discrepancy
+        # requests review; it never changes grades, credits or weighting.
+        report.issues.append(ExtractionIssue("official_gpa_mismatch", "warning"))
+        needs_review = True
+        common["needs_review"] = True
     return IngestionDecision("review_required" if needs_review else "complete",
-                             courses=apply_gpa_weighting(extraction.courses, field), **common)
+                             courses=courses, **common)
 
 
 def analyze_and_parse_transcript(

@@ -110,6 +110,7 @@ class AcademicSummaryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     courses: list[CourseInput]
+    official_cgpa: float | None = Field(default=None, ge=0, le=4, strict=True, allow_inf_nan=False)
 
 
 class SemesterSummaryResponse(BaseModel):
@@ -124,7 +125,9 @@ class SemesterSummaryResponse(BaseModel):
 class AcademicSummaryResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    current_gpa: float
+    current_gpa: float = Field(description="Legacy derived GPA; unchanged for calculation consumers")
+    official_cgpa: float | None = None
+    derived_cgpa: float
     total_gpa_weight: float
     active_course_count: int
     semesters: list[SemesterSummaryResponse] = Field(default_factory=list)

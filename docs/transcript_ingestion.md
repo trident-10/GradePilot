@@ -57,6 +57,39 @@ headings without cell boundaries require mapping. Unknown grade scales and missi
 required values remain validation errors; no grades or credits are invented.
 Scanned pages still require OCR and are rejected rather than silently skipped.
 
+Credit headers take precedence over footer words such as `Explanation` or
+`Aciklama` when they occur in a recognized table header. Header schemas retain
+printed labels and exclude recognized hours, coefficients and points from credit
+candidates. A bilingual translation of the same semester heading does not create
+a parallel table. Numeric-only evidence remains low-confidence; no choice is made
+from the relative size of the values.
+
+The frontend asks for the GPA credit system, not both column roles. If headers
+are unresolved, users select one sample card for that system. The existing form
+fields submit that single mapping and weighting together, skipping a redundant
+second selection. After weighting, application policy compares the existing GPA
+engine's latest-attempt result with an explicitly printed 4-point CGPA (allowing
+0.011 for display rounding/truncation). A discrepancy requests review and never
+overwrites either value or changes the GPA formula.
+
+## Official versus derived CGPA display
+
+The printed `official_summary.cgpa` is kept as `officialCgpa` in transcript state.
+Only the academic-summary request receives it as optional `official_cgpa` metadata.
+The summary domain/API returns `official_cgpa` and `derived_cgpa` separately. The
+legacy `current_gpa` remains course-derived for existing calculation consumers.
+Refreshing the summary preserves the original official value.
+
+The overview's main card displays official CGPA when present (including zero),
+otherwise derived CGPA. Label is `GANO` when official is used, otherwise
+`Hesaplanan GANO`. When both values exist and differ, the card may show a quiet
+secondary `GradePilot hesabı` line. A 0.01 rounding/truncation difference is not
+an alarm; larger gaps (including well above 0.10) may raise a structured
+`official_gpa_mismatch` review warning without replacing either value or rewriting
+courses. The planning preview is explicitly labelled as course-derived.
+Planner/scenario requests never receive the rounded official CGPA, and their
+engines and course data are unchanged.
+
 Regression tests cover mixed full-width/parallel layouts, word preservation,
 forbidden page cropping, shared semester context, geometric/explicit cells,
 numeric identifiers, composite hours, unknown columns, and layer independence.

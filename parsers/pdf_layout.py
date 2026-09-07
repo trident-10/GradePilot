@@ -4,7 +4,7 @@ import re
 from statistics import median
 
 from parsers.headers import HEADER_CELL, recognize_header, split_cells
-from parsers.rows import BOUNDARY_PATTERN, CODE_PATTERN, GRADE_PATTERN, fold, number, semester_label
+from parsers.rows import BOUNDARY_PATTERN, CODE_PATTERN, GRADE_PATTERN, TERM_PATTERN, fold, number, semester_label
 from parsers.summary_labels import LABELS, is_summary_line
 
 
@@ -174,6 +174,17 @@ def _parallel_fragments(line: list[dict]) -> list[list[dict]]:
         if line[index]["x0"] - line[index - 1]["x1"] < minimum_gap:
             break
         left, right = line[:index], line[index:]
+        # Translations of one semester heading above a full-width table are
+        # one context, not two parallel tables whose context should be restored.
+        left_term, right_term = semester_label(_line_text(left)), semester_label(_line_text(right))
+        left_word = TERM_PATTERN.search(fold(_line_text(left)))
+        right_word = TERM_PATTERN.search(fold(_line_text(right)))
+        if (left_term and left_term == right_term
+                and left_word and right_word and left_word[0] != right_word[0]
+                and not any(GRADE_PATTERN.fullmatch(w["text"]) for w in line)
+                and not recognize_header(_line_text(left))
+                and not recognize_header(_line_text(right))):
+            continue
         if (bool(semester_label(_line_text(left))) != bool(semester_label(_line_text(right)))
                 and (recognize_header(_line_text(left)) or recognize_header(_line_text(right)))):
             # A semester title and its column headings share a header band.

@@ -13,8 +13,8 @@ import { cx } from "@/lib/display";
 import { TranscriptValidationFrame } from "@/components/upload/TranscriptValidationFrame";
 
 function optionLabel(optionId: string) {
-  if (optionId === "credit") return "Kredi sistemi";
-  if (optionId === "ects") return "AKTS sistemi";
+  if (optionId === "credit") return "Kredi / Ulusal Kredi (UK)";
+  if (optionId === "ects") return "AKTS / ECTS";
   return "Diğer sistem";
 }
 
@@ -26,8 +26,8 @@ export function CreditSelection() {
   return (
     <TranscriptValidationFrame>
       <Section
-        title="Okulun GANO'su hangi sistemle hesaplanıyor?"
-        description="Bir seçim yaparak devam edin."
+        title="GANO hesabında hangi sistem kullanılıyor?"
+        description="Kredi sütunlarını bulduk. Yalnızca üniversitenizin genel ortalama hesabında kullandığı sistemi seçin."
       >
         <div className="space-y-5">
           {error ? <div role="alert"><InlineNotice tone="caution">{error.description}</InlineNotice></div> : null}
@@ -49,10 +49,11 @@ export function CreditSelection() {
                   <button
                     key={option.id}
                     type="button"
+                    disabled={isBusy}
                     aria-pressed={active}
                     onClick={() => setSelected(option.id)}
                     className={cx(
-                      "flex min-h-20 w-full items-center justify-between gap-3 rounded-[12px] border px-4 py-4 text-left transition-[background-color,border-color,box-shadow] duration-[180ms]",
+                      "flex min-h-20 w-full items-center justify-between gap-3 rounded-[12px] border px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60",
                       active
                         ? "border-accent/45 bg-accent-soft/80 shadow-[inset_3px_0_0_0_var(--accent)]"
                         : "border-rule/80 bg-surface-muted/40 hover:border-accent/25 hover:bg-surface-muted/70",
@@ -61,6 +62,11 @@ export function CreditSelection() {
                     <span className="min-w-0">
                       <span className="block text-base font-semibold text-ink">
                         {label}
+                      </span>
+                      <span className="mt-1 block text-sm leading-6 text-muted">
+                        {option.id === "credit"
+                          ? "PDF’de Kredi, UK veya Credit olarak yazabilir."
+                          : "PDF’de AKTS veya ECTS olarak yazabilir."}
                       </span>
                     </span>
                     <span
