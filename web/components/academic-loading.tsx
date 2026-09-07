@@ -37,7 +37,7 @@ export function AcademicProcessCard({
       aria-live="polite"
     >
       <div className="flex justify-center">{children}</div>
-      <div className="relative mt-3 min-h-5 text-center">
+      <div className="relative mt-3 min-h-10 text-center sm:min-h-5">
         {phrases && phrases.length > 0 ? (
           <RotatingPhrases phrases={phrases} />
         ) : (
@@ -64,11 +64,6 @@ function RotatingPhrases({ phrases }: { phrases: readonly string[] }) {
     </p>
   );
 }
-
-const TRANSCRIPT_PHRASES = [
-  "Transkript hazırlanıyor",
-  "Derslerin ve akademik bilgilerin işleniyor.",
-] as const;
 
 export function AcademicLoader({
   variant,
@@ -108,7 +103,7 @@ export function AcademicLoader({
 export function TranscriptProcess() {
   return (
     <AcademicProcessCard
-      phrases={TRANSCRIPT_PHRASES}
+      label="Transkript hazırlanıyor…"
       skeleton={
         <>
           <div className="grid grid-cols-3 gap-2">

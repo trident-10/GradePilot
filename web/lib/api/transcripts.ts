@@ -1,13 +1,21 @@
+import { toUserFacingError } from "@/lib/errorModel";
 import { getApiBaseUrl } from "@/lib/config";
 
 /** Mirrors FastAPI TranscriptAnalyzeResponse (snake_case wire format). */
 export type AnalyzeApiResponse = {
-  status: "credit_selection" | "confirmation" | "ready";
+  official_summary?: { cgpa: number | null };
+  status: "manual_mapping" | "credit_selection" | "confirmation" | "ready";
   format: string;
   confidence: number;
   credit_options: Array<{
     id: string;
     label: string;
+  }>;
+  mapping_candidates: Array<{
+    id: string;
+    label: string;
+    sample_values: number[];
+    confidence: "high" | "medium" | "low";
   }>;
   courses: Array<{
     code: string;
@@ -26,18 +34,41 @@ export class ApiClientError extends Error {
   status: number | null;
   detail: string;
   kind: "http" | "network" | "invalid_response";
+  retryAfterSeconds?: number;
+  errorType?: string;
+  code?: string;
 
   constructor(
     kind: "http" | "network" | "invalid_response",
     detail: string,
     status: number | null = null,
+    retryAfterSeconds?: number,
+    metadata?: { errorType?: string; code?: string },
   ) {
     super(detail);
     this.name = "ApiClientError";
     this.kind = kind;
     this.detail = detail;
     this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
+    this.errorType = metadata?.errorType;
+    this.code = metadata?.code;
   }
+}
+
+function parseRetryAfterSeconds(response: Response): number | undefined {
+  const header = response.headers.get("retry-after");
+  if (!header) return undefined;
+
+  const seconds = Number(header);
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Math.ceil(seconds);
+  }
+
+  const retryAt = Date.parse(header);
+  if (Number.isNaN(retryAt)) return undefined;
+
+  return Math.max(1, Math.ceil((retryAt - Date.now()) / 1000));
 }
 
 function parseDetail(payload: unknown): string {
@@ -52,14 +83,41 @@ function parseDetail(payload: unknown): string {
   return "İstek başarısız oldu.";
 }
 
+function parseErrorMetadata(payload: unknown): {
+  errorType?: string;
+  code?: string;
+} {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return {};
+  }
+  return {
+    ...("error_type" in payload && typeof payload.error_type === "string"
+      ? { errorType: payload.error_type }
+      : {}),
+    ...("code" in payload && typeof payload.code === "string"
+      ? { code: payload.code }
+      : {}),
+  };
+}
+
 export async function analyzeTranscript(
   file: File,
-  weightingField?: string,
+  options?: {
+    weightingField?: string;
+    localCreditField?: string;
+    ectsField?: string;
+  },
 ): Promise<AnalyzeApiResponse> {
   const form = new FormData();
   form.append("file", file);
-  if (weightingField) {
-    form.append("weighting_field", weightingField);
+  if (options?.weightingField) {
+    form.append("weighting_field", options.weightingField);
+  }
+  if (options?.localCreditField) {
+    form.append("local_credit_field", options.localCreditField);
+  }
+  if (options?.ectsField) {
+    form.append("ects_field", options.ectsField);
   }
 
   const url = `${getApiBaseUrl()}/api/transcripts/analyze`;
@@ -96,6 +154,8 @@ export async function analyzeTranscript(
       "http",
       parseDetail(payload),
       response.status,
+      parseRetryAfterSeconds(response),
+      parseErrorMetadata(payload),
     );
   }
 
@@ -117,74 +177,5 @@ export async function analyzeTranscript(
 
 /** Map backend/English error text to Turkish UI copy. */
 export function toTurkishUserMessage(error: unknown): string {
-  if (!(error instanceof ApiClientError)) {
-    return "Beklenmeyen bir hata oluştu. Lütfen tekrar dene.";
-  }
-
-  if (error.kind === "network") {
-    return error.detail;
-  }
-
-  if (error.status === 429) {
-    return error.detail;
-  }
-
-  if (error.status === 413) {
-    return "PDF dosyası çok büyük. Maksimum 10 MB yükleyebilirsin.";
-  }
-
-  if (error.detail === "PDF en fazla 50 sayfa olabilir.") {
-    return error.detail;
-  }
-  if (error.detail === "PDF okunamadı. Farklı bir dosya deneyin.") {
-    return error.detail;
-  }
-  if (error.detail === "Yüklenen dosya geçerli bir PDF değil.") {
-    return error.detail;
-  }
-  if (error.detail.startsWith("PDF dosyası çok büyük.")) {
-    return "PDF dosyası çok büyük. Maksimum 10 MB yükleyebilirsin.";
-  }
-
-  const detail = error.detail.toLowerCase();
-
-  if (
-    detail.includes("not a valid pdf") ||
-    detail.includes("is not a valid pdf")
-  ) {
-    return "Yüklenen dosya geçerli bir PDF değil.";
-  }
-  if (detail.includes("empty")) {
-    return "PDF dosyası boş görünüyor.";
-  }
-  if (
-    detail.includes("malformed") ||
-    detail.includes("could not be opened") ||
-    detail.includes("pdf okunamadı")
-  ) {
-    return "PDF okunamadı. Farklı bir dosya deneyin.";
-  }
-  if (detail.includes("too many pages") || detail.includes("en fazla 50 sayfa")) {
-    return "PDF en fazla 50 sayfa olabilir.";
-  }
-  if (
-    detail.includes("maximum allowed size") ||
-    detail.includes("çok büyük")
-  ) {
-    return "PDF dosyası çok büyük. Maksimum 10 MB yükleyebilirsin.";
-  }
-  if (detail.includes("no courses were provided")) {
-    return "Hesaplanacak ders bulunamadı. Transkripti yeniden yükle.";
-  }
-  if (detail.includes("weighting")) {
-    return "Seçilen GANO ağırlığı bu transkript için geçerli değil.";
-  }
-  if (detail.includes("interpreted")) {
-    return "Transkript anlaşılamadı. Farklı bir PDF dene.";
-  }
-  if (detail.includes("no viable credit") || detail.includes("kredi alanı")) {
-    return "Bu transkriptte kullanılabilecek bir kredi alanı tespit edilemedi.";
-  }
-
-  return "Transkript işlenirken bir hata oluştu. Lütfen tekrar dene.";
+  return toUserFacingError(error).description;
 }

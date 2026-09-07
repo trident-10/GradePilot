@@ -1,6 +1,7 @@
 export type AppPhase =
   | "empty"
   | "uploading"
+  | "manual_mapping"
   | "credit_selection"
   | "confirmation"
   | "ready"
@@ -10,6 +11,13 @@ export type AppPhase =
 export type CreditOption = {
   id: string;
   label: string;
+};
+
+export type MappingCandidate = {
+  id: string;
+  label: string;
+  sampleValues: number[];
+  confidence: "high" | "medium" | "low";
 };
 
 /** Course row mapped from the Python backend response. */
@@ -57,6 +65,7 @@ export type ImprovementRow = {
  * Frontend only stores and displays these; it must not compute GPA.
  */
 export type TranscriptResult = {
+  officialCgpa?: number | null;
   formatName: string | null;
   warnings: string[];
   courses: Course[];

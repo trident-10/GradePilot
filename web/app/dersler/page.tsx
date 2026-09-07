@@ -256,7 +256,7 @@ export default function CoursesPage() {
                 <p className="text-xs tabular-nums text-faint">
                   {visibleActive.length} / {filteredActive.length} ders
                 </p>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                   <select
                     value={pageSize === "all" ? "all" : String(pageSize)}
                     onChange={(event) => {
@@ -265,7 +265,10 @@ export default function CoursesPage() {
                         value === "all" ? "all" : (Number(value) as 10 | 20),
                       );
                     }}
-                    className={cx(controlClass, "h-9 w-[7.5rem]")}
+                    className={cx(
+                      controlClass,
+                      "h-11 w-full sm:h-9 sm:w-[7.5rem]",
+                    )}
                     aria-label="Gösterilecek ders sayısı"
                   >
                     <option value="10">10</option>
@@ -275,7 +278,7 @@ export default function CoursesPage() {
                   {hasMoreCourses ? (
                     <SecondaryButton
                       type="button"
-                      className="h-9"
+                      className="w-full sm:w-auto"
                       onClick={() =>
                         setPageSize((size) => (size === 10 ? 20 : "all"))
                       }

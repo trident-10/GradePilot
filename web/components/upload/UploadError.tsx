@@ -1,34 +1,20 @@
 "use client";
 
-import {
-  ContentFrame,
-  GhostButton,
-  InlineNotice,
-  PageHeader,
-  PrimaryButton,
-} from "@/components/ui";
+import { ErrorCard } from "@/components/feedback/ErrorCard";
+import { ContentFrame } from "@/components/ui";
 import { useAppState } from "@/context/AppStateContext";
+import { toUserFacingError } from "@/lib/errorModel";
 
 export function UploadError() {
-  const { errorMessage, clearError, resetTranscript } = useAppState();
+  const { error, clearError, retryUpload } = useAppState();
 
   return (
-    <ContentFrame width="narrow">
-      <PageHeader
-        title="Transkript işlenemedi"
-        description="Dosya okunamadı. PDF olduğunu ve boyutun 10 MB’ı geçmediğini kontrol edip yeniden dene."
+    <ContentFrame width="narrow" className="gp-upload-enter">
+      <ErrorCard
+        error={error ?? toUserFacingError(new Error("Missing error state"))}
+        onRetry={retryUpload}
+        onStartOver={clearError}
       />
-      <InlineNotice tone="error">
-        {errorMessage ?? "Bilinmeyen bir hata oluştu."}
-      </InlineNotice>
-      <div className="flex flex-wrap gap-3">
-        <PrimaryButton type="button" onClick={clearError}>
-          Tekrar dene
-        </PrimaryButton>
-        <GhostButton type="button" onClick={resetTranscript}>
-          Baştan başla
-        </GhostButton>
-      </div>
     </ContentFrame>
   );
 }

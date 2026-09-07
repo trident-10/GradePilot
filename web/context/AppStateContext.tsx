@@ -35,6 +35,12 @@ import {
   type AnalyzeApiResponse,
   toTurkishUserMessage,
 } from "@/lib/api/transcripts";
+import {
+  fileTooLargeError,
+  toUserFacingError,
+  unsupportedFileError,
+  type UserFacingError,
+} from "@/lib/errorModel";
 import { MAX_TRANSCRIPT_UPLOAD_BYTES } from "@/lib/uploadLimits";
 import {
   selectActiveCourses,
@@ -44,8 +50,14 @@ import type {
   AppPhase,
   Course,
   CreditOption,
+  MappingCandidate,
   TranscriptResult,
 } from "@/lib/types";
+
+type SemanticMapping = {
+  localCreditField?: string;
+  ectsField?: string;
+};
 
 export type FutureCourseDraft = {
   id: string;
@@ -90,9 +102,10 @@ type AppStateContextValue = {
   phase: AppPhase;
   isReady: boolean;
   isBusy: boolean;
-  errorMessage: string | null;
+  error: UserFacingError | null;
   transcript: TranscriptResult | null;
   creditOptions: CreditOption[];
+  mappingCandidates: MappingCandidate[];
   pendingCourses: Course[];
   courses: Course[];
   activeCourses: Course[];
@@ -111,6 +124,11 @@ type AppStateContextValue = {
   manualScenarioLoading: boolean;
   manualScenarioError: string | null;
   uploadFile: (file: File) => Promise<void>;
+  retryUpload: () => Promise<void>;
+  submitManualMapping: (
+    localCreditField: string | null,
+    ectsField: string | null,
+  ) => Promise<void>;
   selectCreditOption: (optionId: string) => Promise<void>;
   confirmCourses: () => void;
   resetTranscript: () => void;
@@ -163,9 +181,14 @@ const AppStateContext = createContext<AppStateContextValue | null>(null);
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [phase, setPhase] = useState<AppPhase>("empty");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [error, setError] = useState<UserFacingError | null>(null);
   const [transcript, setTranscript] = useState<TranscriptResult | null>(null);
   const [creditOptions, setCreditOptions] = useState<CreditOption[]>([]);
+  const [mappingCandidates, setMappingCandidates] = useState<
+    MappingCandidate[]
+  >([]);
+  const [semanticMapping, setSemanticMapping] =
+    useState<SemanticMapping | null>(null);
   const [pendingCourses, setPendingCourses] = useState<Course[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [formatName, setFormatName] = useState<string | null>(null);
@@ -272,9 +295,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const resetTranscript = useCallback(() => {
     setPhase("empty");
-    setErrorMessage(null);
+    setError(null);
     setTranscript(null);
     setCreditOptions([]);
+    setMappingCandidates([]);
+    setSemanticMapping(null);
     setPendingCourses([]);
     setWarnings([]);
     setFormatName(null);
@@ -284,9 +309,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, [clearSummary]);
 
   const clearError = useCallback(() => {
-    setErrorMessage(null);
+    setError(null);
     setPhase("empty");
     setCreditOptions([]);
+    setMappingCandidates([]);
+    setSemanticMapping(null);
     setPendingCourses([]);
     setWarnings([]);
     setFormatName(null);
@@ -314,13 +341,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const enterReady = useCallback(
-    async (courses: Course[], nextFormat: string | null, nextWarnings: string[]) => {
+    async (courses: Course[], nextFormat: string | null, nextWarnings: string[], officialCgpa: number | null = null) => {
       clearManualScenario();
       setCreditOptions([]);
+      setMappingCandidates([]);
+      setSemanticMapping(null);
       setPendingCourses([]);
       setTranscript({
         formatName: nextFormat,
         warnings: nextWarnings,
+        officialCgpa,
         courses,
       });
       setPhase("ready");
@@ -334,10 +364,28 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     async (response: AnalyzeApiResponse) => {
       setFormatName(response.format);
       setWarnings(response.warnings ?? []);
-      setErrorMessage(null);
+      setError(null);
+
+      if (response.status === "manual_mapping") {
+        setPhase("manual_mapping");
+        setCreditOptions([]);
+        setMappingCandidates(
+          (response.mapping_candidates ?? []).map((candidate) => ({
+            id: candidate.id,
+            label: candidate.label,
+            sampleValues: candidate.sample_values,
+            confidence: candidate.confidence,
+          })),
+        );
+        setPendingCourses([]);
+        setTranscript(null);
+        clearSummary();
+        return;
+      }
 
       if (response.status === "credit_selection") {
         setPhase("credit_selection");
+        setMappingCandidates([]);
         setCreditOptions(
           (response.credit_options ?? []).map((option) => ({
             id: option.id,
@@ -360,12 +408,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           ...EMPTY_RESULT,
           formatName: response.format,
           warnings: response.warnings ?? [],
+          officialCgpa: response.official_summary?.cgpa ?? null,
         });
         clearSummary();
         return;
       }
 
-      await enterReady(courses, response.format, response.warnings ?? []);
+      await enterReady(courses, response.format, response.warnings ?? [], response.official_summary?.cgpa ?? null);
     },
     [clearSummary, enterReady],
   );
@@ -373,9 +422,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const uploadFile = useCallback(
     async (file: File) => {
       setPhase("uploading");
-      setErrorMessage(null);
+      setError(null);
       setTranscript(null);
       setCreditOptions([]);
+      setMappingCandidates([]);
+      setSemanticMapping(null);
       setPendingCourses([]);
       setWarnings([]);
       setFormatName(null);
@@ -387,14 +438,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         file.type === "application/pdf" ||
         file.name.toLowerCase().endsWith(".pdf");
       if (!looksLikePdf) {
-        setErrorMessage("Yüklenen dosya geçerli bir PDF değil.");
+        setError(unsupportedFileError());
         setPhase("error");
         return;
       }
       if (file.size > MAX_TRANSCRIPT_UPLOAD_BYTES) {
-        setErrorMessage(
-          "PDF dosyası çok büyük. Maksimum 10 MB yükleyebilirsin.",
-        );
+        setError(fileTooLargeError());
         setPhase("error");
         return;
       }
@@ -403,50 +452,117 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         const response = await analyzeTranscript(file);
         await applyAnalyzeResponse(response);
       } catch (error) {
-        console.error("Transcript analyze failed", error);
-        setErrorMessage(toTurkishUserMessage(error));
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Transcript analyze failed", error);
+        }
+        setError(toUserFacingError(error));
         setPhase("error");
       }
     },
     [applyAnalyzeResponse, clearSummary],
   );
 
-  const selectCreditOption = useCallback(
-    async (optionId: string) => {
+  const retryUpload = useCallback(async () => {
+    if (!uploadedFile) {
+      clearError();
+      return;
+    }
+
+    await uploadFile(uploadedFile);
+  }, [clearError, uploadFile, uploadedFile]);
+
+  const submitManualMapping = useCallback(
+    async (
+      localCreditField: string | null,
+      ectsField: string | null,
+    ) => {
       if (!uploadedFile) {
-        setErrorMessage(
-          "Yüklenen PDF bulunamadı. Lütfen transkripti yeniden yükle.",
-        );
+        setError(toUserFacingError(new Error("Missing uploaded file")));
         setPhase("error");
         return;
       }
 
+      const nextMapping: SemanticMapping = {
+        ...(localCreditField
+          ? { localCreditField }
+          : {}),
+        ...(ectsField ? { ectsField } : {}),
+      };
+
       setPhase("uploading");
-      setErrorMessage(null);
-      setWeightingMode(optionId);
+      setError(null);
+      setSemanticMapping(nextMapping);
       clearSummary();
 
       try {
-        const response = await analyzeTranscript(uploadedFile, optionId);
+        const response = await analyzeTranscript(uploadedFile, nextMapping);
         await applyAnalyzeResponse(response);
       } catch (error) {
-        console.error("Weighting selection failed", error);
-        setErrorMessage(toTurkishUserMessage(error));
-        setPhase("error");
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Manual credit mapping failed", error);
+        }
+        const visibleError = toUserFacingError(error);
+        setError(visibleError);
+        setPhase(visibleError.errorCode === "GP-008" ? "manual_mapping" : "error");
       }
     },
     [applyAnalyzeResponse, clearSummary, uploadedFile],
   );
 
+  const selectCreditOption = useCallback(
+    async (optionId: string) => {
+      if (!uploadedFile) {
+        setError(toUserFacingError(new Error("Missing uploaded file")));
+        setPhase("error");
+        return;
+      }
+
+      setPhase("uploading");
+      setError(null);
+      setWeightingMode(optionId);
+      clearSummary();
+
+      try {
+        const response = await analyzeTranscript(uploadedFile, {
+          ...semanticMapping,
+          weightingField: optionId,
+        });
+        await applyAnalyzeResponse(response);
+      } catch (error) {
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Weighting selection failed", error);
+        }
+        const visibleError = toUserFacingError(error);
+        setError(visibleError);
+        if (visibleError.errorCode === "GP-008" && semanticMapping) {
+          // Restore candidates so the mapping can be corrected in place.
+          try {
+            const preview = await analyzeTranscript(uploadedFile);
+            await applyAnalyzeResponse(preview);
+            setSemanticMapping(null);
+            setWeightingMode(null);
+            setError(visibleError);
+          } catch (previewError) {
+            setError(toUserFacingError(previewError));
+            setPhase("error");
+          }
+        } else {
+          setPhase(visibleError.errorCode === "GP-008" ? "credit_selection" : "error");
+        }
+      }
+    },
+    [applyAnalyzeResponse, clearSummary, semanticMapping, uploadedFile],
+  );
+
   const confirmCourses = useCallback(() => {
     if (pendingCourses.length === 0) {
-      setErrorMessage("Onaylanacak ders verisi yok.");
+      setError(toUserFacingError(new Error("Missing courses to confirm")));
       setPhase("error");
       return;
     }
 
-    void enterReady(pendingCourses, formatName, warnings);
-  }, [enterReady, formatName, pendingCourses, warnings]);
+    void enterReady(pendingCourses, formatName, warnings, transcript?.officialCgpa ?? null);
+  }, [enterReady, formatName, pendingCourses, warnings, transcript?.officialCgpa]);
 
   const refreshAcademicSummary = useCallback(async () => {
     const courses = transcript?.courses ?? [];
@@ -697,9 +813,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       phase,
       isReady: phase === "ready",
       isBusy: phase === "uploading",
-      errorMessage,
+      error,
       transcript,
       creditOptions,
+      mappingCandidates,
       pendingCourses,
       courses: result?.courses ?? [],
       activeCourses: selectActiveCourses(result?.courses ?? []),
@@ -718,6 +835,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       manualScenarioLoading,
       manualScenarioError,
       uploadFile,
+      retryUpload,
+      submitManualMapping,
       selectCreditOption,
       confirmCourses,
       resetTranscript,
@@ -766,7 +885,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     courseImpactLoading,
     courseImpactResult,
     creditOptions,
-    errorMessage,
+    error,
     formatName,
     futureCourses,
     futureSemesterError,
@@ -776,6 +895,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     manualScenarioError,
     manualScenarioLoading,
     manualScenarioResult,
+    mappingCandidates,
     pendingCourses,
     phase,
     plannerError,
@@ -793,10 +913,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     requiredGpaLoading,
     requiredGpaResult,
     resetTranscript,
+    retryUpload,
     selectCreditOption,
     selectedImpactCourse,
     summaryError,
     summaryLoading,
+    submitManualMapping,
     transcript,
     updateManualScenarioChange,
     updateFutureCourse,

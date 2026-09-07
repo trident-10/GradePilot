@@ -12,6 +12,15 @@ class CreditOptionResponse(BaseModel):
     label: str
 
 
+class MappingCandidateResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(description="Opaque public numeric column id")
+    label: str
+    sample_values: list[float] = Field(default_factory=list)
+    confidence: Literal["high", "medium", "low"]
+
+
 class CourseResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -25,21 +34,63 @@ class CourseResponse(BaseModel):
     source_order: int
 
 
+class OfficialTranscriptSummaryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    cgpa: float | None = None
+    total_local_credit: float | None = None
+    total_ects: float | None = None
+    total_course_count: int | None = None
+    semester_count: int | None = None
+    graduation_status: str | None = None
+
+
+class OfficialSemesterSummaryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    gpa: float | None = None
+    cgpa: float | None = None
+    local_credit: float | None = None
+    ects: float | None = None
+
+
+class TranscriptSemesterResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    label: str
+    year: str | None = None
+    term: str | None = None
+    course_source_orders: list[int] = Field(default_factory=list)
+    official_summary: OfficialSemesterSummaryResponse | None = None
+
+
 class TranscriptAnalyzeResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    status: Literal["credit_selection", "confirmation", "ready"]
+    status: Literal[
+        "manual_mapping",
+        "credit_selection",
+        "confirmation",
+        "ready",
+    ]
     format: str
     confidence: float
     credit_options: list[CreditOptionResponse] = Field(default_factory=list)
+    mapping_candidates: list[MappingCandidateResponse] = Field(
+        default_factory=list
+    )
     courses: list[CourseResponse] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    official_summary: OfficialTranscriptSummaryResponse | None = None
+    semesters: list[TranscriptSemesterResponse] = Field(default_factory=list)
 
 
 class ErrorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     detail: str
+
+
+class TranscriptIngestionErrorResponse(ErrorResponse):
+    error_type: Literal["invalid_transcript", "invalid_mapping_request"] | None = None
+    code: str | None = None
 
 
 class CourseInput(BaseModel):

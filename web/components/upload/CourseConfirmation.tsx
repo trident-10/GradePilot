@@ -9,6 +9,7 @@ import {
   PrimaryButton,
 } from "@/components/ui";
 import { useAppState } from "@/context/AppStateContext";
+import { selectHistoricalCourses } from "@/lib/courses";
 
 function displayValue(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === "") {
@@ -17,20 +18,109 @@ function displayValue(value: string | number | null | undefined) {
   return String(value);
 }
 
+function userFacingWarning(warning: string): string | null {
+  const normalized = warning.toLocaleLowerCase("tr-TR");
+
+  // Confirmation page already asks the user to review courses — skip this noise.
+  if (normalized.includes("generic parsing was used")) {
+    return null;
+  }
+  if (normalized.includes("no courses were extracted")) {
+    return "Seçilen kredi sütunuyla ders bilgileri oluşturulamadı. Lütfen yeni bir PDF seçin.";
+  }
+  if (
+    normalized.includes("gano hesabında") ||
+    normalized.includes("dersler bulundu ancak") ||
+    normalized.includes("transkriptte kredi")
+  ) {
+    return warning;
+  }
+
+  return "Bazı ders bilgileri otomatik olarak doğrulanamadı. Lütfen tabloyu dikkatlice kontrol edin.";
+}
+
+function SummaryItem({ children }: { children: string }) {
+  return (
+    <li className="flex min-w-0 items-center gap-2 text-sm text-ink">
+      <span
+        aria-hidden
+        className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-ok-soft text-xs font-bold text-ok"
+      >
+        ✓
+      </span>
+      <span>{children}</span>
+    </li>
+  );
+}
+
 export function CourseConfirmation() {
   const { pendingCourses, warnings, confirmCourses, resetTranscript } =
     useAppState();
+  const semesterCount = new Set(
+    pendingCourses
+      .map((course) => course.semester?.trim())
+      .filter((semester): semester is string => Boolean(semester)),
+  ).size;
+  const repeatedCourseCount = selectHistoricalCourses(pendingCourses).length;
+  const visibleWarnings = [
+    ...new Set(
+      warnings
+        .map(userFacingWarning)
+        .filter((warning): warning is string => warning !== null),
+    ),
+  ];
 
   return (
-    <ContentFrame width="wide">
+    <ContentFrame width="wide" className="gp-upload-enter space-y-5">
       <PageHeader
-        title="Derslerini kontrol et"
-        description="Devam etmeden önce ders ve not bilgilerini gözden geçir."
+        title="Transkript Doğrulama"
+        description="Ders listesi hazır. Analize başlamadan önce not ve kredi bilgilerini gözden geçir."
       />
 
-      {warnings.length > 0 ? (
+      {pendingCourses.length > 0 ? (
+        <section
+          role="status"
+          aria-live="polite"
+          aria-label="Transkript özeti"
+          className="w-full rounded-[16px] border border-ok/30 bg-ok-soft/55 p-5 text-left shadow-[var(--shadow-sm)] sm:p-6"
+        >
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/12 px-2.5 py-1 text-xs font-bold tracking-[0.08em] text-ok">
+            <svg aria-hidden className="size-4" fill="none" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
+              <path
+                d="m8 12 2.6 2.6L16.5 9"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.7"
+              />
+            </svg>
+            BAŞARILI
+          </span>
+          <h2 className="mt-3 text-lg font-bold tracking-[-0.025em] text-ink">
+            Transkript özeti hazır
+          </h2>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
+            Aşağıdaki özet ve tablo doğru görünüyorsa analize devam
+            edebilirsin.
+          </p>
+          <ul className="mt-4 grid gap-2 border-t border-ok/20 pt-4 sm:grid-cols-3">
+            <SummaryItem>{`${pendingCourses.length} ders bulundu`}</SummaryItem>
+            {semesterCount > 0 ? (
+              <SummaryItem>{`${semesterCount} dönem algılandı`}</SummaryItem>
+            ) : null}
+            <SummaryItem>
+              {repeatedCourseCount > 0
+                ? `${repeatedCourseCount} tekrar alınan ders bulundu`
+                : "Tekrar alınan ders bulunmadı"}
+            </SummaryItem>
+          </ul>
+        </section>
+      ) : null}
+
+      {visibleWarnings.length > 0 ? (
         <InfoNote>
-          {warnings.map((warning) => (
+          {visibleWarnings.map((warning) => (
             <span key={warning} className="block">
               {warning}
             </span>
@@ -83,18 +173,23 @@ export function CourseConfirmation() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <PrimaryButton
           type="button"
+          className="w-full sm:w-auto"
           disabled={pendingCourses.length === 0}
           onClick={() => {
             confirmCourses();
           }}
         >
-          Bilgiler doğru, devam et
+          Bilgiler Doğru, Analize Devam Et
         </PrimaryButton>
-        <GhostButton type="button" onClick={resetTranscript}>
-          Baştan yükle
+        <GhostButton
+          type="button"
+          className="w-full sm:w-auto"
+          onClick={resetTranscript}
+        >
+          Yeni PDF Seç
         </GhostButton>
       </div>
     </ContentFrame>

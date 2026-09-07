@@ -1,6 +1,11 @@
+import pytest
+
 from core.gpa_engine import calculate_gpa
 from parsers.gpa_weighting import FIELD_ECTS, FIELD_LOCAL_CREDIT
-from parsers.transcript_parser import analyze_and_parse_transcript
+from parsers.transcript_parser import (
+    TranscriptStructureError,
+    analyze_and_parse_transcript,
+)
 
 
 CANKAYA_TEXT = """
@@ -124,3 +129,185 @@ def test_engines_still_work_after_ects_weighting():
 
     # DD(1.0)*6 + BB(3.0)*6 = 24 over 12 credits
     assert gpa == 2.0
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "Ders Kredi AKTS Not",
+        "Course Credit ECTS Grade",
+    ],
+)
+def test_explicit_credit_and_ects_headers_are_semantic(header):
+    text = f"""
+Example University
+{header}
+CENG101 Programming 3 6 BA
+CENG102 Data Structures 4 7 BB
+"""
+
+    result = analyze_and_parse_transcript(text)
+
+    assert result.requires_manual_mapping is False
+    assert result.requires_credit_selection is True
+    assert result.credit_options is not None
+    assert [option.field_key for option in result.credit_options] == [
+        FIELD_LOCAL_CREDIT,
+        FIELD_ECTS,
+    ]
+    assert all(option.confidence == "high" for option in result.credit_options)
+
+
+def test_ambiguous_numeric_columns_require_manual_mapping():
+    text = """
+Example University
+Course Value One Value Two Grade
+CENG101 Programming 3 6 BA
+CENG102 Data Structures 4 7 BB
+"""
+
+    result = analyze_and_parse_transcript(text)
+
+    assert result.requires_manual_mapping is True
+    assert result.requires_credit_selection is False
+    assert result.courses == []
+    assert result.mapping_candidates is not None
+    assert [candidate.label for candidate in result.mapping_candidates] == [
+        "Sütun A",
+        "Sütun B",
+    ]
+    assert all(
+        candidate.confidence == "low"
+        for candidate in result.mapping_candidates
+    )
+    assert "Kredi Alanı" not in str(result)
+
+
+def test_nearby_multiline_headers_are_medium_confidence():
+    text = """
+Example University
+Course Credit ECTS
+Letter Grade
+CENG101 Programming 3 6 BA
+CENG102 Data Structures 4 7 BB
+"""
+
+    result = analyze_and_parse_transcript(text)
+
+    assert result.credit_options is not None
+    assert [option.field_key for option in result.credit_options] == [
+        FIELD_LOCAL_CREDIT,
+        FIELD_ECTS,
+    ]
+    assert all(option.confidence == "medium" for option in result.credit_options)
+
+
+def test_split_course_number_is_not_a_manual_mapping_candidate():
+    text = """
+Course Value One Value Two Grade
+CENG 101 Programming 3 6 BA
+CENG 102 Data Structures 4 7 BB
+"""
+
+    result = analyze_and_parse_transcript(text)
+
+    assert result.mapping_candidates is not None
+    assert len(result.mapping_candidates) == 2
+    assert result.mapping_candidates[0].sample_values == [3.0, 4.0]
+    assert result.mapping_candidates[1].sample_values == [6.0, 7.0]
+
+
+def test_readable_text_without_course_structure_is_not_manual_mapping():
+    with pytest.raises(TranscriptStructureError, match="ders yapısı"):
+        analyze_and_parse_transcript(
+            "Example University\nAcademic Transcript\nTotal Credits 3 6 AA"
+        )
+
+
+def test_manual_mapping_normalizes_both_semantic_fields():
+    text = """
+Example University
+Course Value One Value Two Grade
+CENG101 Programming 3 6 BA
+CENG102 Data Structures 4 7 BB
+"""
+    preview = analyze_and_parse_transcript(text)
+    assert preview.mapping_candidates is not None
+    local_candidate, ects_candidate = preview.mapping_candidates
+    mapping = {
+        FIELD_LOCAL_CREDIT: local_candidate.relative_position,
+        FIELD_ECTS: ects_candidate.relative_position,
+    }
+
+    result = analyze_and_parse_transcript(
+        text,
+        gpa_weighting_field=FIELD_LOCAL_CREDIT,
+        semantic_field_positions=mapping,
+    )
+
+    assert result.requires_manual_mapping is False
+    assert result.requires_credit_selection is False
+    assert len(result.courses) == 2
+    assert result.courses[0].gpa_credit == 3.0
+    assert result.courses[0].local_credit == 3.0
+    assert result.courses[0].ects == 6.0
+
+
+def test_same_manual_column_cannot_fill_both_semantic_roles():
+    text = """
+Course Value One Value Two Grade
+CENG101 Programming 3 6 BA
+CENG102 Data Structures 4 7 BB
+"""
+
+    with pytest.raises(ValueError, match="same numeric column"):
+        analyze_and_parse_transcript(
+            text,
+            gpa_weighting_field=FIELD_LOCAL_CREDIT,
+            semantic_field_positions={
+                FIELD_LOCAL_CREDIT: -1,
+                FIELD_ECTS: -1,
+            },
+        )
+
+
+def test_only_local_credit_is_supported():
+    text = """
+Course Credit Grade
+CENG101 Programming 3 BA
+CENG102 Data Structures 4 BB
+"""
+    preview = analyze_and_parse_transcript(text)
+
+    assert [option.field_key for option in preview.credit_options or []] == [
+        FIELD_LOCAL_CREDIT
+    ]
+
+    result = analyze_and_parse_transcript(
+        text,
+        gpa_weighting_field=FIELD_LOCAL_CREDIT,
+    )
+    assert result.courses[0].local_credit == 3.0
+    assert result.courses[0].ects is None
+    assert result.courses[0].gpa_credit == 3.0
+
+
+def test_only_ects_is_supported():
+    text = """
+Course ECTS Letter Grade
+CENG101 Programming 6 BA
+CENG102 Data Structures 7 BB
+"""
+    preview = analyze_and_parse_transcript(text)
+
+    assert [option.field_key for option in preview.credit_options or []] == [
+        FIELD_ECTS
+    ]
+
+    result = analyze_and_parse_transcript(
+        text,
+        gpa_weighting_field=FIELD_ECTS,
+    )
+    assert result.courses[0].local_credit is None
+    assert result.courses[0].ects == 6.0
+    assert result.courses[0].gpa_credit == 6.0

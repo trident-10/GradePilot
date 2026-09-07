@@ -4,6 +4,7 @@ import { AppShell, EntryShell } from "@/components/AppShell";
 import { MetricTile, Panel } from "@/components/dashboard";
 import { CourseConfirmation } from "@/components/upload/CourseConfirmation";
 import { CreditSelection } from "@/components/upload/CreditSelection";
+import { ManualCreditMapping } from "@/components/upload/ManualCreditMapping";
 import { UploadError } from "@/components/upload/UploadError";
 import { UploadStart } from "@/components/upload/UploadStart";
 import { UploadingState } from "@/components/upload/UploadingState";
@@ -24,11 +25,18 @@ export default function TranscriptPage() {
   if (!isReady) {
     return (
       <EntryShell>
-        {phase === "empty" ? <UploadStart /> : null}
-        {phase === "uploading" ? <UploadingState /> : null}
-        {phase === "credit_selection" ? <CreditSelection /> : null}
-        {phase === "confirmation" ? <CourseConfirmation /> : null}
-        {phase === "error" ? <UploadError /> : null}
+        {phase === "empty" ? <UploadStart key="empty" /> : null}
+        {phase === "uploading" ? <UploadingState key="uploading" /> : null}
+        {phase === "manual_mapping" ? (
+          <ManualCreditMapping key="manual_mapping" />
+        ) : null}
+        {phase === "credit_selection" ? (
+          <CreditSelection key="credit_selection" />
+        ) : null}
+        {phase === "confirmation" ? (
+          <CourseConfirmation key="confirmation" />
+        ) : null}
+        {phase === "error" ? <UploadError key="error" /> : null}
       </EntryShell>
     );
   }

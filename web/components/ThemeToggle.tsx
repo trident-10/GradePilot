@@ -4,46 +4,24 @@ import { useSyncExternalStore } from "react";
 
 type Theme = "light" | "dark";
 
-const STORAGE_KEY = "gradepilot-theme";
-
-function currentTheme(): Theme {
-  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-}
-
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.colorScheme = theme;
   window.dispatchEvent(new Event("gradepilot-theme-change"));
 }
 
-function subscribe(onChange: () => void) {
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
-  const syncManualTheme = () => onChange();
-  const syncSystemTheme = () => {
-    let stored: string | null = null;
-    try {
-      stored = localStorage.getItem(STORAGE_KEY);
-    } catch {
-      // Keep following the system when storage is unavailable.
-    }
-    if (stored === "light" || stored === "dark") return;
-    applyTheme(media.matches ? "dark" : "light");
-  };
+function currentTheme(): Theme {
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+}
 
-  window.addEventListener("gradepilot-theme-change", syncManualTheme);
-  media.addEventListener("change", syncSystemTheme);
-  return () => {
-    window.removeEventListener("gradepilot-theme-change", syncManualTheme);
-    media.removeEventListener("change", syncSystemTheme);
-  };
+function subscribe(onChange: () => void) {
+  window.addEventListener("gradepilot-theme-change", onChange);
+  return () => window.removeEventListener("gradepilot-theme-change", onChange);
 }
 
 export function ThemeToggle() {
-  const activeTheme = useSyncExternalStore(
-    subscribe,
-    currentTheme,
-    () => "light" as Theme,
-  );
+  const activeTheme = useSyncExternalStore(subscribe, currentTheme, () => "light");
+
   const nextTheme: Theme = activeTheme === "light" ? "dark" : "light";
   const label =
     nextTheme === "dark" ? "Koyu temaya geç" : "Açık temaya geç";
@@ -55,13 +33,8 @@ export function ThemeToggle() {
       title={label}
       onClick={() => {
         applyTheme(nextTheme);
-        try {
-          localStorage.setItem(STORAGE_KEY, nextTheme);
-        } catch {
-          // Local preference remains active for this page if storage is blocked.
-        }
       }}
-      className="group inline-flex size-9 shrink-0 items-center justify-center rounded-[9px] border border-rule bg-surface text-muted shadow-[var(--shadow-sm)] transition-[transform,background-color,border-color,color,box-shadow] duration-[180ms] hover:-translate-y-px hover:border-accent/35 hover:bg-accent-soft/50 hover:text-accent-deep hover:shadow-[var(--shadow-md)] active:translate-y-0 active:shadow-[var(--shadow-sm)]"
+      className="group inline-flex size-11 shrink-0 items-center justify-center rounded-[9px] border border-rule bg-surface text-muted shadow-[var(--shadow-sm)] transition-[transform,background-color,border-color,color,box-shadow] duration-[180ms] hover:-translate-y-px hover:border-accent/35 hover:bg-accent-soft/50 hover:text-accent-deep hover:shadow-[var(--shadow-md)] active:translate-y-0 active:shadow-[var(--shadow-sm)] sm:size-9"
     >
       <span className="sr-only">{label}</span>
       {activeTheme === "light" ? (

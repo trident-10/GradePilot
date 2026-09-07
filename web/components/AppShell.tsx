@@ -135,9 +135,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="relative min-h-screen bg-bg">
+    <div className="relative min-h-dvh bg-bg">
       <AmbientBackground />
-      <div className="relative z-[1] mx-auto flex min-h-screen w-full max-w-[1600px]">
+      <div className="relative z-[1] mx-auto flex min-h-dvh w-full max-w-[1600px]">
         {navOpen ? (
           <button
             type="button"
@@ -154,7 +154,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ref={drawerRef}
           id={navId}
           className={cx(
-            "fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-rule/80 bg-surface/92 px-2.5 py-4 shadow-[var(--shadow-sm)] backdrop-blur-md transition-transform duration-200 ease-out md:static md:z-0 md:flex md:w-48 md:shrink-0 md:translate-x-0 md:shadow-none",
+            "fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-rule/80 bg-surface/92 px-2.5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] shadow-[var(--shadow-sm)] backdrop-blur-md transition-transform duration-200 ease-out md:static md:z-0 md:flex md:w-48 md:shrink-0 md:translate-x-0 md:py-4 md:shadow-none",
             navOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
           )}
           aria-hidden={drawerHidden}
@@ -170,7 +170,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               GradePilot
             </Link>
           </div>
-          <div className="mt-6 flex-1 overflow-y-auto">{nav}</div>
+          <div className="mt-6 min-h-0 flex-1 overflow-y-auto">{nav}</div>
           <div className="mt-4 space-y-3 border-t border-rule px-2.5 pt-3">
             <div className="flex items-center gap-2 px-0.5 text-xs">
               <span className="size-1.5 rounded-full bg-ok" aria-hidden />
@@ -190,8 +190,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center justify-between border-b border-rule/80 bg-surface/90 px-4 py-2.5 backdrop-blur-md md:hidden">
+        <div className="flex min-h-dvh min-w-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center justify-between border-b border-rule/80 bg-surface/90 px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-md md:hidden">
             <Link
               href="/genel-bakis"
               onClick={closeNav}
@@ -205,7 +205,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <button
                 ref={menuButtonRef}
                 type="button"
-                className="inline-flex size-9 items-center justify-center rounded-[9px] border border-rule bg-surface text-ink transition-[transform,background-color,border-color] duration-[180ms] hover:-translate-y-px hover:bg-surface-muted active:translate-y-0"
+                className="inline-flex size-11 items-center justify-center rounded-[9px] border border-rule bg-surface text-ink transition-[transform,background-color,border-color] duration-[180ms] hover:-translate-y-px hover:bg-surface-muted active:translate-y-0"
                 aria-expanded={navOpen}
                 aria-controls={navId}
                 aria-label={navOpen ? "Menüyü kapat" : "Menüyü aç"}
@@ -246,13 +246,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <ThemeToggle />
             </div>
           </header>
+          {/*
+            Avoid overflow-x-clip here: with a non-visible overflow-x it can force
+            overflow-y to auto and trap vertical scrolling inside main.
+            min-w-0 already contains flex overflow; pages scroll with the document.
+          */}
           <main
             key={pathname}
-            className="gp-page-enter min-w-0 flex-1 overflow-x-clip px-4 py-4 sm:px-5 md:px-6 md:py-5"
+            className="gp-page-enter min-w-0 flex-1 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 sm:px-5 md:px-6 md:py-5"
           >
             {children}
           </main>
-          <footer className="border-t border-rule/70 px-4 py-3 md:hidden">
+          <footer className="shrink-0 border-t border-rule/70 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:hidden">
             <ProductSignature />
           </footer>
         </div>
@@ -264,9 +269,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 /** First-run / onboarding chrome — no app sidebar. */
 export function EntryShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-screen bg-bg">
+    <div className="relative min-h-dvh bg-bg">
       <AmbientBackground />
-      <div className="relative z-[1] mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-8 sm:px-6 md:py-14">
+      <div className="relative z-[1] mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] sm:px-6 md:py-14">
         <div className="mb-8 flex items-center justify-between md:mb-10">
           <p className="inline-flex items-center gap-2 font-display text-lg font-semibold tracking-[-0.04em] text-ink">
             <span className="size-2.5 rounded-[3px] bg-accent" aria-hidden />

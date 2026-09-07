@@ -9,7 +9,6 @@ import {
   ContentFrame,
   EmptyState,
   FormField,
-  InfoNote,
   InlineNotice,
   OutcomeHero,
   PageHeader,
@@ -61,9 +60,7 @@ export default function FutureSemesterPage() {
             description="Önümüzdeki dönem notların nasıl olursa GANO’n nasıl değişir?"
             aside={<WeightingChip mode={weightingMode} />}
           />
-          <InfoNote>Bu alan yeni dönem derslerini planlamak içindir.</InfoNote>
-
-          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
           <section>
             <div className="flex flex-wrap items-end justify-between gap-3">
               <h2 className="font-display text-[1.08rem] font-semibold tracking-[-0.02em] text-ink md:text-lg">
@@ -72,7 +69,7 @@ export default function FutureSemesterPage() {
             </div>
 
             <div className="mt-4 overflow-hidden rounded-[14px] border border-rule/80 bg-surface/90 shadow-[var(--shadow-sm)]">
-              <div className="hidden grid-cols-[minmax(12rem,1fr)_8.75rem_9.5rem_2.75rem] gap-3 border-b border-rule/80 px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.06em] text-faint md:grid">
+              <div className="hidden grid-cols-[minmax(12rem,1fr)_8.75rem_9.5rem_2.75rem] gap-3 border-b border-rule/80 px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.06em] text-faint lg:grid">
                 <span>Ders</span>
                 <span>{weightLabel}</span>
                 <span>Beklenen not</span>
@@ -88,11 +85,11 @@ export default function FutureSemesterPage() {
                   return (
                     <div
                       key={row.id}
-                      className="grid gap-3 px-3 py-3 gp-enter md:grid-cols-[minmax(12rem,1fr)_8.75rem_9.5rem_2.75rem] md:items-end md:px-4"
+                      className="grid gap-3 px-3 py-3 gp-enter lg:grid-cols-[minmax(12rem,1fr)_8.75rem_9.5rem_2.75rem] lg:items-end lg:px-4"
                     >
                       <FormField
                         label="Ders"
-                        labelClassName="text-xs text-faint md:sr-only"
+                        labelClassName="text-xs text-faint lg:sr-only"
                       >
                         <input
                           value={row.name}
@@ -102,13 +99,13 @@ export default function FutureSemesterPage() {
                             })
                           }
                           placeholder="Ders kodu veya adı"
-                          className={controlClass}
+                          className={`${controlClass} scroll-mt-24`}
                         />
                       </FormField>
-                      <div className="grid grid-cols-2 gap-2 md:contents">
+                      <div className="grid grid-cols-2 gap-2 lg:contents">
                         <FormField
                           label={weightLabel}
-                          labelClassName="text-xs text-faint md:sr-only"
+                          labelClassName="text-xs text-faint lg:sr-only"
                         >
                           <select
                             value={
@@ -133,7 +130,7 @@ export default function FutureSemesterPage() {
                                 gpaCredit: value === "other" ? "" : value,
                               });
                             }}
-                            className={`${controlClass} tabular-nums`}
+                            className={`${controlClass} scroll-mt-24 tabular-nums`}
                             aria-label={`${weightLabel} seç`}
                           >
                             <option value="" disabled>
@@ -160,13 +157,13 @@ export default function FutureSemesterPage() {
                               }
                               placeholder="Özel değer"
                               aria-label={`Özel ${weightLabel.toLocaleLowerCase("tr")} değeri`}
-                              className={`${controlClass} mt-2 tabular-nums`}
+                              className={`${controlClass} mt-2 scroll-mt-24 tabular-nums`}
                             />
                           ) : null}
                         </FormField>
                         <FormField
                           label="Beklenen not"
-                          labelClassName="text-xs text-faint md:sr-only"
+                          labelClassName="text-xs text-faint lg:sr-only"
                         >
                           <select
                             value={row.grade}
@@ -175,7 +172,7 @@ export default function FutureSemesterPage() {
                                 grade: event.target.value,
                               })
                             }
-                            className={controlClass}
+                            className={`${controlClass} scroll-mt-24`}
                           >
                             {LETTER_GRADES.map((grade) => (
                               <option key={grade} value={grade}>
@@ -195,10 +192,10 @@ export default function FutureSemesterPage() {
                           });
                           removeFutureCourse(row.id);
                         }}
-                        className="h-9 w-auto justify-self-start px-2 text-xs md:h-10 md:justify-self-center md:px-2"
+                        className="h-11 w-full justify-center px-3 text-sm sm:w-auto lg:h-10 lg:justify-self-center lg:px-2 lg:text-xs"
                         aria-label="Satırı kaldır"
                       >
-                        <span className="md:hidden">Kaldır</span>
+                        <span className="lg:hidden">Kaldır</span>
                         <TrashIcon />
                       </QuietDangerButton>
                     </div>
@@ -207,8 +204,12 @@ export default function FutureSemesterPage() {
               </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <SecondaryButton type="button" onClick={addFutureCourse}>
+            <div className="mt-5 grid gap-3 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] sm:flex sm:flex-wrap">
+              <SecondaryButton
+                type="button"
+                onClick={addFutureCourse}
+                className="h-11 w-full sm:w-auto"
+              >
                 <PlusIcon />
                 Ders ekle
               </SecondaryButton>
@@ -216,15 +217,16 @@ export default function FutureSemesterPage() {
                 type="button"
                 disabled={futureSemesterLoading}
                 onClick={() => void requestFutureSemester()}
+                className="h-11 w-full sm:w-auto"
               >
                 {futureSemesterLoading
                   ? "Hesaplanıyor"
-                  : "Simülasyonu Hesapla →"}
+                  : "Simülasyonu Hesapla"}
               </PrimaryButton>
             </div>
           </section>
 
-          <div className="space-y-3 lg:sticky lg:top-4">
+          <div className="space-y-3 xl:sticky xl:top-4">
           {futureSemesterError ? (
             <InlineNotice tone="error">{futureSemesterError}</InlineNotice>
           ) : null}
@@ -297,7 +299,7 @@ function TrashIcon() {
       height="15"
       viewBox="0 0 20 20"
       fill="none"
-      className="hidden md:block"
+      className="hidden lg:block"
     >
       <path
         d="M4.5 6h11M8 6V4.5h4V6M6.5 6v9.5h7V6"

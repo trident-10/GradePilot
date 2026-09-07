@@ -1,52 +1,12 @@
 from models.course import Course
 from models.extracted_course import ExtractedCourse
-from parsers.credit_options import CreditOption
-
-FIELD_LOCAL_CREDIT = "local_credit"
-FIELD_ECTS = "ects"
+from parsers.semantic_fields import FIELD_ECTS, FIELD_LOCAL_CREDIT
 
 
-def build_weighting_options_from_extracted(
-    extracted_courses: list[ExtractedCourse],
-) -> list[CreditOption]:
-    """Offer only credit fields that were actually extracted."""
-
-    options: list[CreditOption] = []
-
-    local_values = [
-        course.local_credit
-        for course in extracted_courses
-        if course.local_credit is not None
-    ]
-    ects_values = [
-        course.ects
-        for course in extracted_courses
-        if course.ects is not None
-    ]
-
-    if local_values:
-        options.append(
-            CreditOption(
-                label="Kredi",
-                field_key=FIELD_LOCAL_CREDIT,
-                sample_values=local_values[:5],
-                score=1.0,
-                relative_position=None,
-            )
-        )
-
-    if ects_values:
-        options.append(
-            CreditOption(
-                label="AKTS / ECTS",
-                field_key=FIELD_ECTS,
-                sample_values=ects_values[:5],
-                score=1.0,
-                relative_position=None,
-            )
-        )
-
-    return options
+def build_weighting_options_from_extracted(extracted_courses):
+    """Compatibility helper; user-facing options belong to presentation."""
+    from services.transcript_presentation import build_weighting_options_from_extracted as build
+    return build(extracted_courses)
 
 
 def apply_gpa_weighting(

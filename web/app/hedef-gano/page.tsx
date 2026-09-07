@@ -114,7 +114,11 @@ export default function RequiredGpaPage() {
                 />
               </FormField>
               <div>
-                <PrimaryButton type="submit" disabled={!canSubmit}>
+                <PrimaryButton
+                  type="submit"
+                  disabled={!canSubmit}
+                  className="w-full sm:w-auto"
+                >
                   {requiredGpaLoading ? "Hesaplanıyor" : "Gerekli Ortalamayı Hesapla"}
                 </PrimaryButton>
               </div>

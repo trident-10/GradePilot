@@ -17,7 +17,7 @@ export function ContentFrame({
     <div
       className={cx(
         "mx-auto w-full px-1 sm:px-0",
-        width === "dashboard" ? "space-y-5" : "space-y-7",
+        width === "dashboard" ? "space-y-6 sm:space-y-7" : "space-y-7",
         width === "narrow" && "max-w-xl",
         width === "default" && "max-w-3xl",
         width === "medium" && "max-w-5xl",
@@ -35,24 +35,28 @@ export function PageHeader({
   title,
   description,
   aside,
+  asideClassName,
 }: {
   title: string;
   description?: string;
   aside?: ReactNode;
+  asideClassName?: string;
 }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-4">
+    <header className="flex flex-wrap items-end justify-between gap-4 pb-1">
       <div className="max-w-2xl">
-        <h1 className="font-display text-[1.5rem] font-semibold leading-[1.12] tracking-[-0.035em] text-ink sm:text-[1.75rem] md:text-[1.95rem]">
+        <h1 className="font-display text-[1.55rem] font-semibold leading-[1.1] tracking-[-0.04em] text-ink sm:text-[1.8rem] md:text-[2rem]">
           {title}
         </h1>
         {description ? (
-          <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted">
+          <p className="mt-2 max-w-xl text-[0.9375rem] leading-6 text-muted">
             {description}
           </p>
         ) : null}
       </div>
-      {aside ? <div className="shrink-0">{aside}</div> : null}
+      {aside ? (
+        <div className={cx("shrink-0", asideClassName)}>{aside}</div>
+      ) : null}
     </header>
   );
 }
@@ -83,7 +87,7 @@ export function Section({
       className={cx(
         level === "open" && "py-1",
         level === "functional" &&
-          "rounded-[14px] border border-rule/80 bg-surface/90 p-5 shadow-[var(--shadow-sm)] backdrop-blur-[2px] md:p-6",
+          "rounded-[14px] border border-rule/80 bg-surface/90 p-5 shadow-[var(--shadow-sm)] md:p-6",
         level === "result" &&
           "rounded-[16px] border border-info/20 bg-info-soft/55 p-5 shadow-[var(--shadow-sm)] md:p-6",
         className,
@@ -226,7 +230,7 @@ export function GradeBadge({ grade }: { grade: string }) {
   return (
     <span
       className={cx(
-        "inline-flex min-w-[2.25rem] items-center justify-center rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums",
+        "inline-flex min-w-[2.25rem] shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums",
         gradeBadgeClass(grade),
       )}
     >
@@ -341,7 +345,7 @@ export function SupportStat({
 }
 
 const buttonBase =
-  "inline-flex h-10 items-center justify-center gap-1.5 rounded-[11px] px-4 text-sm font-semibold tracking-[-0.01em] gp-lift gp-press disabled:cursor-not-allowed disabled:opacity-55 disabled:shadow-none disabled:transform-none";
+  "inline-flex h-11 items-center justify-center gap-1.5 rounded-[11px] px-4 text-sm font-semibold tracking-[-0.01em] gp-lift gp-press sm:h-10 disabled:cursor-not-allowed disabled:opacity-55 disabled:shadow-none disabled:transform-none";
 
 export function PrimaryButton({
   className,
@@ -432,7 +436,7 @@ export function FormField({
 }
 
 export const controlClass =
-  "h-10 w-full rounded-[11px] border border-rule/90 bg-surface/95 px-3 text-sm text-ink outline-none transition-[background-color,border-color,box-shadow] duration-[180ms] placeholder:text-faint hover:border-accent/30 focus-visible:border-accent focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_18%,transparent)]";
+  "h-11 w-full rounded-[11px] border border-rule/90 bg-surface/95 px-3 text-base text-ink outline-none transition-[background-color,border-color,box-shadow] duration-[180ms] placeholder:text-faint hover:border-accent/30 focus-visible:border-accent focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_18%,transparent)] sm:h-10 sm:text-sm";
 
 export function EmptyState({
   title,

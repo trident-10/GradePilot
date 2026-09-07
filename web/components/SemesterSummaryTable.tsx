@@ -1,4 +1,4 @@
-import { useId, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Section, SkeletonBlock } from "@/components/ui";
 import { cx, formatGpa } from "@/lib/display";
@@ -32,11 +32,11 @@ export function SemesterSummaryTable({
           <SemesterTrendChart semesters={semesters} />
           <div className="-mx-1 overflow-x-auto sm:mx-0">
             <table className="w-full min-w-[400px] border-collapse text-xs sm:text-sm">
-              <caption className="sr-only">Dönem GANO tablosu</caption>
+              <caption className="sr-only">Dönem not ortalamaları tablosu</caption>
               <thead>
                 <tr className="border-b border-rule text-left text-xs text-faint">
                   <th className="py-2 pr-2 font-medium">Dönem</th>
-                  <th className="py-2 pr-2 font-medium">GANO</th>
+                  <th className="py-2 pr-2 font-medium">DNO</th>
                   <th className="py-2 pr-2 font-medium">Ağırlık</th>
                   <th className="py-2 font-medium">Ders</th>
                 </tr>
@@ -120,65 +120,44 @@ function SemesterHighlights({ semesters }: { semesters: SemesterSummary[] }) {
   );
 }
 
-type ChartViewport = "narrow" | "medium" | "wide";
-
-const NARROW_QUERY = "(max-width: 639px)";
-const MEDIUM_QUERY = "(min-width: 640px) and (max-width: 1023px)";
-
-function useChartViewport(): ChartViewport {
-  return useSyncExternalStore(
-    (onChange) => {
-      const narrow = window.matchMedia(NARROW_QUERY);
-      const medium = window.matchMedia(MEDIUM_QUERY);
-      narrow.addEventListener("change", onChange);
-      medium.addEventListener("change", onChange);
-      return () => {
-        narrow.removeEventListener("change", onChange);
-        medium.removeEventListener("change", onChange);
-      };
-    },
-    () => {
-      if (window.matchMedia(NARROW_QUERY).matches) return "narrow";
-      if (window.matchMedia(MEDIUM_QUERY).matches) return "medium";
-      return "wide";
-    },
-    () => "wide",
-  );
-}
-
 function pointAnnouncement(row: SemesterSummary) {
-  return `${row.semester}, GANO ${formatGpa(row.gpa)}, ağırlık ${row.weight}, ${row.courseCount} ders`;
+  return `${row.semester}, DNO ${formatGpa(row.gpa)}, ağırlık ${row.weight}, ${row.courseCount} ders`;
 }
 
 export function SemesterTrendChart({ semesters }: { semesters: SemesterSummary[] }) {
   const barGradientId = useId().replace(/:/g, "");
   const tooltipId = useId().replace(/:/g, "");
-  const viewport = useChartViewport();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(340);
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(Math.max(240, entry.contentRect.width));
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
   const [activePoint, setActivePoint] = useState<number | null>(null);
-  const narrow = viewport === "narrow";
-  const medium = viewport === "medium";
-  // Full two-line labels when space allows: always for ≤4 periods on tablet+,
-  // and for ≤5 periods on desktop. Mobile always uses compact labels.
-  const useFullTwoLineLabels =
-    !narrow && semesters.length <= (medium ? 4 : 5);
+  const narrow = width < 480;
+  const medium = width < 640;
 
-  const width = narrow ? 340 : medium ? 560 : 720;
   const height = narrow ? 228 : medium ? 252 : 268;
   const labelSize = narrow ? 11 : 12;
   const tickSize = narrow ? 10 : 11;
   const pad = narrow
-    ? { top: 22, right: 10, bottom: 36, left: 28 }
+    ? { top: 28, right: 10, bottom: 48, left: 28 }
     : medium
       ? {
           top: 24,
           right: 12,
-          bottom: useFullTwoLineLabels ? 46 : 38,
+          bottom: 46,
           left: 32,
         }
       : {
           top: 24,
           right: 14,
-          bottom: useFullTwoLineLabels ? 48 : 38,
+          bottom: 48,
           left: 34,
         };
 
@@ -186,9 +165,9 @@ export function SemesterTrendChart({ semesters }: { semesters: SemesterSummary[]
   const plotH = height - pad.top - pad.bottom;
   const minGpa = 0;
   const maxGpa = 4;
-  const useCompactLabels = narrow;
-  const dense = semesters.length > 6;
   const slotW = plotW / Math.max(semesters.length, 1);
+  const labelStride = Math.max(1, Math.ceil(68 / slotW));
+  const valueStride = Math.max(1, Math.ceil(42 / slotW));
 
   const points = semesters.map((row, index) => {
     const x = pad.left + slotW * index + slotW / 2;
@@ -207,7 +186,7 @@ export function SemesterTrendChart({ semesters }: { semesters: SemesterSummary[]
     activePoint === null ? null : (points[activePoint] ?? null);
 
   return (
-    <div className="gp-chart-stage w-full px-1 py-2 sm:px-2 sm:py-2.5">
+    <div ref={containerRef} className="gp-chart-stage min-w-0 w-full px-1 py-2 sm:px-2 sm:py-2.5">
       <div className="gp-chart-stage-glow" aria-hidden />
       <svg
         viewBox={`0 0 ${width} ${height}`}
@@ -217,7 +196,7 @@ export function SemesterTrendChart({ semesters }: { semesters: SemesterSummary[]
         )}
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-label="Dönem GANO trendi, çizgi grafik, 0 ile 4 ölçeğinde. Değerler aşağıdaki tabloda da listelenir."
+        aria-label="Dönem not ortalamaları (DNO), çizgi grafik, 0 ile 4 ölçeğinde. Ayrıntılar için noktaları seçin."
       >
         <defs>
           <linearGradient id={barGradientId} x1="0" y1="0" x2="0" y2="1">
@@ -276,7 +255,7 @@ export function SemesterTrendChart({ semesters }: { semesters: SemesterSummary[]
         ) : null}
 
         {points.map((point, index) => {
-          const valueY = Math.max(pad.top + 11, point.y - 10);
+          const valueY = Math.max(12, point.y - 12);
           const selected = activePoint === index;
           return (
             <g
@@ -335,7 +314,7 @@ export function SemesterTrendChart({ semesters }: { semesters: SemesterSummary[]
                 stroke="var(--info)"
                 strokeWidth={2}
               />
-              <text
+              {index % valueStride === 0 ? <text
                 x={point.x}
                 y={valueY}
                 textAnchor="middle"
@@ -344,7 +323,7 @@ export function SemesterTrendChart({ semesters }: { semesters: SemesterSummary[]
                 fontWeight={600}
               >
                 {formatGpa(point.row.gpa)}
-              </text>
+              </text> : null}
             </g>
           );
         })}
@@ -359,64 +338,21 @@ export function SemesterTrendChart({ semesters }: { semesters: SemesterSummary[]
         ) : null}
 
         {points.map((point, index) => {
-          const isLast = index === points.length - 1 && points.length > 1;
-          if (
-            dense &&
-            useCompactLabels &&
-            index % 2 !== 0 &&
-            !isLast
-          ) {
-            return null;
-          }
-          const isFirst = index === 0;
-          const anchor = isFirst ? "start" : isLast ? "end" : "middle";
+          if (index % labelStride !== 0) return null;
+          const anchor = "middle";
 
-          if (useCompactLabels) {
-            return (
-              <text
-                key={`${point.row.semester}-label`}
-                x={point.x}
-                y={height - 10}
-                textAnchor={anchor}
-                fill="var(--muted)"
-                fontSize={9.5}
-              >
-                {shortSemesterLabel(point.row.semester)}
-              </text>
-            );
-          }
-
-          if (useFullTwoLineLabels) {
-            const parts = splitSemesterLabel(point.row.semester);
-            return (
-              <text
-                key={`${point.row.semester}-label`}
-                x={point.x}
-                y={height - 28}
-                textAnchor={anchor}
-                fill="var(--muted)"
-                fontSize={medium ? 10.5 : 11}
-              >
-                <tspan x={point.x} dy="0">
-                  {parts.year}
-                </tspan>
-                <tspan x={point.x} dy="13">
-                  {parts.season}
-                </tspan>
-              </text>
-            );
-          }
-
+          const parts = splitSemesterLabel(point.row.semester);
           return (
             <text
               key={`${point.row.semester}-label`}
               x={point.x}
-              y={height - 12}
+              y={height - 28}
               textAnchor={anchor}
               fill="var(--muted)"
-              fontSize={10.5}
+              fontSize={medium ? 10.5 : 11}
             >
-              {shortSemesterLabel(point.row.semester)}
+              <tspan x={point.x} dy="0">{parts.year}</tspan>
+              <tspan x={point.x} dy="13">{parts.season}</tspan>
             </text>
           );
         })}
@@ -432,7 +368,7 @@ export function SemesterTrendChart({ semesters }: { semesters: SemesterSummary[]
         </p>
       ) : null}
       <p className="relative z-[1] mt-1 px-1 text-[11px] text-faint">
-        Akademik ölçek: 0.0 – 4.0 GANO
+        DNO: yalnızca ilgili dönemin ortalaması · Ölçek: 0–4
       </p>
     </div>
   );
@@ -487,7 +423,7 @@ function ChartTooltip({
         fontSize={narrow ? 12 : 13}
         fontWeight="700"
       >
-        GANO {formatGpa(point.row.gpa)}
+        DNO {formatGpa(point.row.gpa)}
       </text>
       <text
         x={x + 10}
@@ -509,16 +445,6 @@ function semesterParts(semester: string) {
   const [, startYear, endYear, rest] = match;
   const season = rest.replace(/dönemi/i, "").trim();
   return { startYear, endYear, season };
-}
-
-/** "2024-2025 Güz" -> "24–25 Güz" */
-function shortSemesterLabel(semester: string): string {
-  const trimmed = semester.trim();
-  const parts = semesterParts(trimmed);
-  if (!parts) {
-    return trimmed.length <= 12 ? trimmed : `${trimmed.slice(0, 10)}…`;
-  }
-  return `${parts.startYear}–${parts.endYear}${parts.season ? ` ${parts.season}` : ""}`;
 }
 
 /** Split for two-line desktop labels: year range + season. */

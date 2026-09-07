@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #f3f0ea;
-  --surface: #fbfaf7;
-  --surface-muted: #ebe6de;
-  --ink: #1c1916;
-  --muted: #6b645c;
-  --faint: #786f67;
-  --rule: #e2dbd0;
-  --accent: #c45f1a;
-  --accent-deep: #9e4b14;
-  --accent-hover: #a94d12;
-  --accent-soft: #f6e7d6;
-  --on-accent: #fffaf4;
+  --bg: #f6f2ee;
+  --surface: #fffbf8;
+  --surface-muted: #efe7df;
+  --ink: #1a1613;
+  --muted: #6a6058;
+  --faint: #7a7168;
+  --rule: #e4dbd2;
+  --accent: #ff5a1f;
+  --accent-deep: #d9430f;
+  --accent-hover: #ff6f3d;
+  --accent-soft: #ffe6db;
+  --on-accent: #ffffff;
   --info: #3d5a73;
   --info-soft: #e8eef3;
   --ok: #3b5d46;
@@ -45,12 +45,12 @@
   --grade-fd-bg: #f3d8d5;
   --grade-ff: #7a1f1c;
   --grade-ff-bg: #ead3d1;
-  --shadow-sm: 0 1px 2px rgb(28 25 22 / 0.06);
-  --shadow-md: 0 8px 22px rgb(28 25 22 / 0.1);
+  --shadow-sm: 0 1px 2px rgb(26 22 19 / 0.06);
+  --shadow-md: 0 8px 22px rgb(26 22 19 / 0.1);
   --motion: 180ms;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --ambient-a: color-mix(in srgb, var(--info) 22%, transparent);
-  --ambient-b: color-mix(in srgb, var(--accent) 18%, transparent);
+  --ambient-a: color-mix(in srgb, var(--info) 18%, transparent);
+  --ambient-b: color-mix(in srgb, var(--accent) 16%, transparent);
   --ambient-c: color-mix(in srgb, var(--surface-muted) 80%, transparent);
 }
 
@@ -62,11 +62,11 @@
   --muted: #b6bec9;
   --faint: #8e97a4;
   --rule: #353b46;
-  --accent: #c86624;
-  --accent-deep: #e08a4c;
-  --accent-hover: #d4732c;
-  --accent-soft: #24262a;
-  --on-accent: #fffaf4;
+  --accent: #39ff14;
+  --accent-deep: #7dff66;
+  --accent-hover: #57ff3a;
+  --accent-soft: #142914;
+  --on-accent: #061206;
   --info: #87b4d6;
   --info-soft: #1a2834;
   --ok: #86c49a;
@@ -101,8 +101,8 @@
   --grade-ff-bg: #2e1e1e;
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.28);
   --shadow-md: 0 10px 28px rgb(0 0 0 / 0.34);
-  --ambient-a: color-mix(in srgb, #5a7fa0 30%, transparent);
-  --ambient-b: color-mix(in srgb, #c86624 10%, transparent);
+  --ambient-a: color-mix(in srgb, #5a7fa0 26%, transparent);
+  --ambient-b: color-mix(in srgb, #39ff14 14%, transparent);
   --ambient-c: color-mix(in srgb, #272c35 72%, transparent);
 }
 
@@ -133,12 +133,26 @@
 
 html {
   background: var(--bg);
+  overflow-x: clip;
+  scroll-padding-top: max(1rem, env(safe-area-inset-top));
+  scroll-padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
 body {
+  min-width: 320px;
+  overflow-x: clip;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, sans-serif;
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+    scroll-margin-block: 1.5rem;
+  }
 }
 
 .gp-grade-aa { color: var(--grade-aa); background: var(--grade-aa-bg); }
@@ -188,7 +202,8 @@ body {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    /* `none` avoids leaving a transform containing block that traps position:fixed */
+    transform: none;
   }
 }
 
@@ -199,7 +214,7 @@ body {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -288,6 +303,22 @@ body {
 
 .gp-page-enter {
   animation: gp-page-enter 220ms var(--ease) both;
+}
+
+@keyframes gp-upload-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Softer phase change after upload / validation steps */
+.gp-upload-enter {
+  animation: gp-upload-enter 320ms var(--ease) both;
 }
 
 .gp-fade {
@@ -605,6 +636,7 @@ body {
   .gp-enter,
   .gp-enter-delay,
   .gp-page-enter,
+  .gp-upload-enter,
   .gp-fade,
   .gp-chart-line,
   .gp-chart-point,

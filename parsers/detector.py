@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from parsers.text_normalization import fold
 
 
 @dataclass
@@ -13,11 +14,11 @@ def detect_transcript_format(
     text: str
 ) -> TranscriptDetection:
 
-    normalized_text = text.lower()
+    normalized_text = fold(text)
 
     if (
-        "çankaya university" in normalized_text
-        or "çankaya üniversitesi" in normalized_text
+        "cankaya university" in normalized_text
+        or "cankaya universitesi" in normalized_text
     ):
         # Parser can extract structure accurately, but GPA weighting
         # (local credit vs ECTS) remains a user decision.

@@ -36,6 +36,7 @@ export default function OverviewPage() {
     weightingMode,
     refreshAcademicSummary,
     activeCourses,
+    transcript,
   } = useAppState();
 
   const currentGpa = academicSummary?.currentGpa ?? null;
@@ -59,7 +60,7 @@ export default function OverviewPage() {
         <ContentFrame width="dashboard">
           <PageHeader
             title="Akademik Genel Bakış"
-            description="Not ortalamanı, ders dağılımını ve dönem performansını incele."
+            description="Not ortalaman, ders dağılımın ve dönem performansın tek bakışta."
           />
 
           {summaryError ? (
@@ -78,6 +79,7 @@ export default function OverviewPage() {
           <Reveal>
             <GpaSummary
               currentGpa={currentGpa}
+              officialCgpa={transcript?.officialCgpa}
               totalGpaWeight={totalGpaWeight}
               activeCourses={activeCount}
               semesterCount={semesterCount}
@@ -85,21 +87,29 @@ export default function OverviewPage() {
               weightingMode={weightingMode}
               loading={summaryLoading}
             />
+            {transcript?.officialCgpa != null && currentGpa !== null &&
+              formatGpa(transcript.officialCgpa) !== formatGpa(currentGpa) ? (
+              <p className="mt-3 text-sm leading-relaxed text-muted">
+                PDF’deki GANO {formatGpa(transcript.officialCgpa)}, derslerden hesaplanan GANO {formatGpa(currentGpa)}.
+                {" "}Hesaplama seçtiğin kredi sistemi ve tekrar edilen derslerin son notuyla yapılır.
+                Planlar hesaplanan GANO’yu kullanır.
+              </p>
+            ) : null}
           </Reveal>
 
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid items-stretch gap-4 sm:gap-5 xl:grid-cols-2">
             <Panel title="Not dağılımı" variant="analytics">
               {activeCourses.length === 0 ? (
                 <p className="text-sm text-muted">Aktif ders notu yok.</p>
               ) : (
-                <ul className="space-y-1.5" aria-label="Aktif ders not dağılımı">
+                <ul className="space-y-2" aria-label="Aktif ders not dağılımı">
                   {gradeCounts.map((row) => (
                     <li
                       key={row.grade}
-                      className="grid grid-cols-[2.5rem_1fr_1.5rem] items-center gap-2"
+                      className="grid grid-cols-[2.75rem_1fr_1.75rem] items-center gap-2.5"
                     >
                       <GradeBadge grade={row.grade} />
-                      <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
+                      <div className="h-2.5 overflow-hidden rounded-full bg-surface-muted">
                         <div
                           className={cx(
                             "h-full rounded-full",
@@ -110,7 +120,7 @@ export default function OverviewPage() {
                           }}
                         />
                       </div>
-                      <span className="text-right text-xs tabular-nums text-muted">
+                      <span className="text-right text-xs font-medium tabular-nums text-ink">
                         {row.count}
                       </span>
                     </li>
@@ -119,7 +129,7 @@ export default function OverviewPage() {
               )}
             </Panel>
 
-            <Panel title="Dönemlere göre GANO" variant="analytics">
+            <Panel title="Dönem not ortalamaları (DNO)" variant="analytics">
               {summaryLoading ? (
                 <AcademicSkeleton className="h-40" />
               ) : !academicSummary || academicSummary.semesters.length === 0 ? (
@@ -130,29 +140,29 @@ export default function OverviewPage() {
             </Panel>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="grid items-stretch gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_18.5rem]">
             <CoursePreview
               weightLabel={weightUnitLabel(weightingMode)}
             />
             <Panel title="Hızlı planlama" variant="action" className="xl:sticky xl:top-4">
-              <p className="text-[11px] uppercase tracking-[0.08em] text-faint">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
                 Mevcut GANO
               </p>
-              <p className="mt-1 font-display text-[2rem] font-semibold leading-none tabular-nums tracking-[-0.04em] text-ink">
+              <p className="mt-2 font-display text-[2rem] font-semibold leading-none tabular-nums tracking-[-0.04em] text-ink">
                 {currentGpa === null ? "—" : formatGpa(currentGpa)}
               </p>
-              <div className="mt-4 divide-y divide-accent/15">
+              <div className="mt-4 divide-y divide-accent/20 border-t border-accent/15 pt-1">
                 <DashboardLink href="/planlayici">
-                  Plan oluştur →
+                  Plan oluştur
                 </DashboardLink>
                 <DashboardLink href="/planlayici?mode=manual">
-                  Kendi planımı yap →
+                  Kendi planımı yap
                 </DashboardLink>
                 <DashboardLink href="/gelecek-donem">
-                  Gelecek dönemi simüle et →
+                  Gelecek dönemi simüle et
                 </DashboardLink>
                 <DashboardLink href="/hedef-gano">
-                  Hedef GANO hesapla →
+                  Hedef GANO hesapla
                 </DashboardLink>
               </div>
             </Panel>
@@ -186,7 +196,7 @@ function CoursePreview({ weightLabel }: { weightLabel: string }) {
           href="/dersler"
           className="text-sm font-medium text-info underline-offset-2 hover:text-accent-deep hover:underline"
         >
-          Tüm dersleri gör →
+          Tüm dersleri gör
         </Link>
       }
     >
@@ -196,7 +206,7 @@ function CoursePreview({ weightLabel }: { weightLabel: string }) {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Ders ara…"
-          className={cx(controlClass, "h-9")}
+          className={cx(controlClass, "h-11 sm:h-9")}
           aria-label="Ders ara"
         />
       </div>

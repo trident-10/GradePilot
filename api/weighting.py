@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from parsers.credit_options import CreditOption
+from parsers.credit_options import CreditOption, MappingCandidate
 from parsers.gpa_weighting import FIELD_ECTS, FIELD_LOCAL_CREDIT
+from validation.mapping_validation import MappingValidationError
 
 
-class InvalidWeightingFieldError(ValueError):
+class InvalidWeightingFieldError(MappingValidationError):
     """Raised when the client sends an unsupported public weighting id."""
+
+    def __init__(self, message: str):
+        super().__init__("invalid_weighting_field", message)
 
 
 def public_option_id(option: CreditOption, index: int) -> str:
@@ -88,3 +92,63 @@ def resolve_weighting_field(
         )
 
     return internal
+
+
+def public_mapping_candidate_id(index: int) -> str:
+    letter = chr(ord("a") + index - 1) if index <= 26 else str(index)
+    return f"column_{letter}"
+
+
+def build_public_mapping_candidate_map(
+    candidates: list[MappingCandidate] | None,
+) -> dict[str, int]:
+    if not candidates:
+        return {}
+
+    return {
+        public_mapping_candidate_id(index): candidate.relative_position
+        for index, candidate in enumerate(candidates, start=1)
+    }
+
+
+def resolve_semantic_field_positions(
+    *,
+    local_credit_field: str | None,
+    ects_field: str | None,
+    candidates: list[MappingCandidate] | None,
+) -> dict[str, int] | None:
+    """Resolve opaque public column ids to parser-only relative positions."""
+
+    normalized_local = (
+        local_credit_field.strip().lower()
+        if local_credit_field is not None
+        else None
+    )
+    normalized_ects = (
+        ects_field.strip().lower()
+        if ects_field is not None
+        else None
+    )
+
+    if not normalized_local and not normalized_ects:
+        return None
+
+    if normalized_local and normalized_local == normalized_ects:
+        raise MappingValidationError("duplicate_mapping")
+
+    public_map = build_public_mapping_candidate_map(candidates)
+    resolved: dict[str, int] = {}
+
+    for semantic_field, public_id in (
+        (FIELD_LOCAL_CREDIT, normalized_local),
+        (FIELD_ECTS, normalized_ects),
+    ):
+        if not public_id:
+            continue
+
+        position = public_map.get(public_id)
+        if position is None:
+            raise MappingValidationError("invalid_mapping")
+        resolved[semantic_field] = position
+
+    return resolved

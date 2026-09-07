@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Sora } from "next/font/google";
 
 import { AppStateProvider } from "@/context/AppStateContext";
@@ -19,18 +19,8 @@ const sora = Sora({
 
 const themeBootScript = `
   (() => {
-    try {
-      const saved = localStorage.getItem("gradepilot-theme");
-      const theme = saved === "light" || saved === "dark"
-        ? saved
-        : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-      document.documentElement.dataset.theme = theme;
-      document.documentElement.style.colorScheme = theme;
-    } catch {
-      const theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      document.documentElement.dataset.theme = theme;
-      document.documentElement.style.colorScheme = theme;
-    }
+    document.documentElement.dataset.theme = "light";
+    document.documentElement.style.colorScheme = "light";
   })();
 `;
 
@@ -46,6 +36,13 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

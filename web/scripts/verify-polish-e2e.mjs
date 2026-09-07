@@ -491,7 +491,7 @@ try {
       background: styles.getPropertyValue("--bg").trim(),
       surface: styles.getPropertyValue("--surface").trim(),
       text: styles.getPropertyValue("--ink").trim(),
-      stored: localStorage.getItem("gradepilot-theme"),
+      accent: styles.getPropertyValue("--accent").trim(),
     };
   });
 
@@ -521,48 +521,48 @@ try {
   }
   report.darkRoutes = darkRoutes.map(([, , slug]) => slug);
 
-  const darkEntry = await browser.newPage();
-  await darkEntry.setViewport({ width: 1280, height: 900 });
-  await darkEntry.goto("http://localhost:3000/transkript", {
+  const lightEntry = await browser.newPage();
+  await lightEntry.setViewport({ width: 1280, height: 900 });
+  await lightEntry.goto("http://localhost:3000/transkript", {
     waitUntil: "networkidle0",
   });
-  await darkEntry.waitForFunction(
+  await lightEntry.waitForFunction(
     () =>
-      document.documentElement.dataset.theme === "dark" &&
+      document.documentElement.dataset.theme === "light" &&
       document.body.innerText.includes("Transkriptini yükle, akademik durumunu planla."),
   );
-  report.darkOnboarding = true;
+  report.lightOnboarding = true;
   if (shotDir) {
-    await darkEntry.screenshot({
-      path: `${shotDir}\\20-dark-onboarding-1280.png`,
+    await lightEntry.screenshot({
+      path: `${shotDir}\\20-light-onboarding-1280.png`,
       fullPage: true,
     });
   }
-  await darkEntry.setViewport({ width: 390, height: 844 });
+  await lightEntry.setViewport({ width: 390, height: 844 });
   if (shotDir) {
-    await darkEntry.screenshot({
-      path: `${shotDir}\\20-dark-onboarding-390.png`,
+    await lightEntry.screenshot({
+      path: `${shotDir}\\20-light-onboarding-390.png`,
       fullPage: true,
     });
   }
 
-  await darkEntry.setRequestInterception(true);
-  let delayedDarkAnalyze = false;
-  darkEntry.on("request", (request) => {
+  await lightEntry.setRequestInterception(true);
+  let delayedLightAnalyze = false;
+  lightEntry.on("request", (request) => {
     if (
-      !delayedDarkAnalyze &&
+      !delayedLightAnalyze &&
       request.url().includes("/api/transcripts/analyze")
     ) {
-      delayedDarkAnalyze = true;
+      delayedLightAnalyze = true;
       setTimeout(() => void request.continue().catch(() => undefined), 900);
       return;
     }
     void request.continue();
   });
-  await darkEntry.waitForFunction(
+  await lightEntry.waitForFunction(
     () => typeof window.__gradePilotUploadFile === "function",
   );
-  await darkEntry.evaluate(async (b64) => {
+  await lightEntry.evaluate(async (b64) => {
     const binary = atob(b64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i += 1) {
@@ -572,18 +572,18 @@ try {
       new File([bytes], "qa_transcript.pdf", { type: "application/pdf" }),
     );
   }, pdfB64);
-  await darkEntry.waitForFunction(() =>
+  await lightEntry.waitForFunction(() =>
     document.body.innerText.includes("Transkript hazırlanıyor"),
   );
-  report.darkLoadingState = true;
+  report.lightLoadingState = true;
   if (shotDir) {
-    await darkEntry.screenshot({
-      path: `${shotDir}\\21-dark-loading-390.png`,
+    await lightEntry.screenshot({
+      path: `${shotDir}\\21-light-loading-390.png`,
       fullPage: true,
     });
   }
   await new Promise((resolve) => setTimeout(resolve, 950));
-  await darkEntry.close();
+  await lightEntry.close();
 
   const ectsPage = await browser.newPage();
   await ectsPage.setViewport({ width: 390, height: 844 });
@@ -662,22 +662,18 @@ try {
   }
   await ectsPage.close();
 
-  report.themePersistence = await page.evaluate(
-    () => localStorage.getItem("gradepilot-theme") === "dark",
-  );
   await page.reload({ waitUntil: "networkidle0" });
-  report.persistedThemeAfterReload = await page.evaluate(
-    () => document.documentElement.dataset.theme === "dark",
+  report.themeStartsLightAfterReload = await page.evaluate(
+    () => document.documentElement.dataset.theme === "light",
   );
 
-  await page.evaluate(() => localStorage.removeItem("gradepilot-theme"));
   await page.emulateMediaFeatures([
     { name: "prefers-color-scheme", value: "dark" },
     { name: "prefers-reduced-motion", value: "reduce" },
   ]);
   await page.reload({ waitUntil: "networkidle0" });
-  report.systemPreferenceDark = await page.evaluate(
-    () => document.documentElement.dataset.theme === "dark",
+  report.systemPreferenceStillLight = await page.evaluate(
+    () => document.documentElement.dataset.theme === "light",
   );
   report.reducedMotionNoAnimation = await page.evaluate(() => {
     const animated = [...document.querySelectorAll(".gp-enter, .gp-fade")];

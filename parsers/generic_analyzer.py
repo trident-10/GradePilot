@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-import re
+
+from parsers.rows import number, read_rows
+from parsers.semantic_fields import DetectionConfidence, SemanticField
 
 
 @dataclass
@@ -7,211 +9,71 @@ class CreditCandidate:
     relative_position: int
     values: list[float]
     score: float
-    label: str | None = None
+    confidence: DetectionConfidence = "low"
+    semantic_field: SemanticField | None = None
 
 
 @dataclass
 class GenericTranscriptAnalysis:
     credit_candidates: list[CreditCandidate]
+    course_row_count: int
 
 
-GRADE_PATTERN = re.compile(
-    r"\b(AA|BA|BB|CB|CC|DC|DD|FD|FF)\b"
-)
-
-
-CREDIT_LABELS = {
-    "uk": "Yerel Kredi / UK",
-    "kredi": "Kredi",
-    "credit": "Credit",
-    "credits": "Credit",
-    "akts": "AKTS / ECTS",
-    "ects": "AKTS / ECTS",
-}
-
-
-def calculate_candidate_score(
-    values: list[float]
-) -> float:
-
+def calculate_candidate_score(values: list[float]) -> float:
     if not values:
         return 0.0
-
-    score = 0.0
-
-    positive_values = [
-        value
-        for value in values
-        if value > 0
-    ]
-
-    positive_ratio = (
-        len(positive_values)
-        / len(values)
-    )
-
-    score += positive_ratio * 5.0
-
-    reasonable_values = [
-        value
-        for value in values
-        if 0 < value <= 15
-    ]
-
-    reasonable_ratio = (
-        len(reasonable_values)
-        / len(values)
-    )
-
-    score += reasonable_ratio * 3.0
-
-    if all(
-        value == 0
-        for value in values
-    ):
-        score -= 10.0
-
-    return score
+    return (5 * sum(v > 0 for v in values) + 3 * sum(0 < v <= 15 for v in values)) / len(values)
 
 
-def find_header_labels(
-    text: str
-) -> list[str]:
+def analyze_generic_transcript(text: str, *, rows=None) -> GenericTranscriptAnalysis:
+    rows = [row for row in (read_rows(text) if rows is None else rows) if row.grade_index is not None]
+    columns: dict[int, list[float]] = {}
+    for row in rows:
+        grade = row.grade_index
+        row_values = {}
+        # Only the contiguous numeric table cells adjacent to the grade are
+        # candidates. Digits in course codes/names are never offered as credits.
+        for direction in (-1, 1):
+            index = grade + direction
+            while 1 <= index < len(row.parts):
+                value = number(row.parts[index])
+                if value is None:
+                    break
+                if value >= 0:
+                    row_values[index - grade] = value
+                index += direction
+        for position in (row.field_positions or {}).values():
+            index = grade + position
+            value = number(row.parts[index]) if 1 <= index < len(row.parts) else None
+            if value is not None and value >= 0:
+                row_values[position] = value
+        for position, value in row_values.items():
+            columns.setdefault(position, []).append(value)
 
-    detected_labels = []
-
-    for line in text.splitlines():
-
-        normalized_line = (
-            line.lower()
-            .replace("ı", "i")
-            .replace("İ", "i")
-        )
-
-        for keyword, label in CREDIT_LABELS.items():
-
-            if keyword in normalized_line:
-
-                if label not in detected_labels:
-                    detected_labels.append(
-                        label
-                    )
-
-    return detected_labels
-
-
-def assign_candidate_labels(
-    candidates: list[CreditCandidate],
-    detected_labels: list[str]
-) -> None:
-
-    if not detected_labels:
-        return
-
-    if len(detected_labels) != len(candidates):
-        return
-
-    ordered_candidates = sorted(
-        candidates,
-        key=lambda candidate:
-        candidate.relative_position
-    )
-
-    for candidate, label in zip(
-        ordered_candidates,
-        detected_labels
-    ):
-        candidate.label = label
-
-
-def analyze_generic_transcript(
-    text: str
-) -> GenericTranscriptAnalysis:
-
-    candidate_columns: dict[
-        int,
-        list[float]
-    ] = {}
-
-    for line in text.splitlines():
-
-        parts = line.split()
-
-        if not parts:
-            continue
-
-        grade_index = None
-
-        for index, part in enumerate(parts):
-
-            if GRADE_PATTERN.fullmatch(part):
-                grade_index = index
-                break
-
-        if grade_index is None:
-            continue
-
-        for index in range(grade_index):
-
-            try:
-                value = float(
-                    parts[index]
+    candidates = {
+        position: CreditCandidate(position, values, calculate_candidate_score(values))
+        for position, values in columns.items()
+    }
+    if rows and rows[0].field_positions:
+        for field, position in rows[0].field_positions.items():
+            values = []
+            for row in rows:
+                relative = (row.field_positions or {}).get(field)
+                if relative is None:
+                    break
+                index = row.grade_index + relative
+                value = number(row.parts[index]) if 1 <= index < len(row.parts) else None
+                if value is None or value < 0:
+                    break
+                values.append(value)
+            # Never promote a partial or inconsistent header to a reliable field.
+            if len(values) == len(rows) and position in candidates:
+                candidates[position] = CreditCandidate(
+                    relative_position=position, values=values,
+                    score=calculate_candidate_score(values), semantic_field=field,
+                    confidence="medium" if any(r.header_confidence == "medium" for r in rows) else "high",
                 )
-            except ValueError:
-                continue
-
-            relative_position = (
-                index - grade_index
-            )
-
-            if (
-                relative_position
-                not in candidate_columns
-            ):
-                candidate_columns[
-                    relative_position
-                ] = []
-
-            candidate_columns[
-                relative_position
-            ].append(value)
-
-    candidates = []
-
-    for relative_position, values in (
-        candidate_columns.items()
-    ):
-
-        score = calculate_candidate_score(
-            values
-        )
-
-        if score <= 2.0:
-            continue
-
-        candidates.append(
-            CreditCandidate(
-                relative_position=relative_position,
-                values=values,
-                score=score,
-            )
-        )
-
-    detected_labels = find_header_labels(
-        text
-    )
-
-    assign_candidate_labels(
-        candidates=candidates,
-        detected_labels=detected_labels
-    )
-
-    candidates.sort(
-        key=lambda candidate:
-        candidate.score,
-        reverse=True
-    )
-
     return GenericTranscriptAnalysis(
-        credit_candidates=candidates
+        credit_candidates=sorted(candidates.values(), key=lambda c: c.score, reverse=True),
+        course_row_count=len(rows),
     )

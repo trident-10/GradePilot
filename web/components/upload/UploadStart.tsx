@@ -70,10 +70,11 @@ export function UploadStart() {
               type="checkbox"
               checked={termsRead}
               onChange={(event) => setTermsRead(event.target.checked)}
+              aria-describedby="transcript-consent-text"
               aria-label="Gizlilik Bildirimi’ni okudum ve Kullanım Koşulları’nı kabul ediyorum."
-              className="mt-1 size-4 shrink-0 rounded border-rule accent-accent"
+              className="mt-0.5 size-5 shrink-0 rounded border-rule accent-accent"
             />
-            <span className="min-w-0 break-words">
+            <span id="transcript-consent-text" className="min-w-0 break-words">
               <Link
                 href="/gizlilik"
                 className="text-accent-deep underline-offset-2 hover:underline"
@@ -166,7 +167,7 @@ export function UploadStart() {
             onClick={() => inputRef.current?.click()}
             className="mt-5 h-11 px-5"
           >
-            {isBusy ? "Hazırlanıyor" : "Transkript Yükle"}
+            {isBusy ? "Yükleniyor…" : "Transkript Yükle"}
           </PrimaryButton>
           <p className="mt-4 text-xs text-faint">
             PDF · Maks. 10 MB · Maks. 50 sayfa
