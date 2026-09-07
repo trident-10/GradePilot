@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Plus_Jakarta_Sans, Sora } from "next/font/google";
 
 import { AppStateProvider } from "@/context/AppStateContext";
@@ -61,6 +62,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full bg-bg font-sans text-ink">
         <AppStateProvider>{children}</AppStateProvider>
+        <Analytics />
       </body>
     </html>
   );
